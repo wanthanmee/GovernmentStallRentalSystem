@@ -37,20 +37,6 @@ def create_database():
 	conn.commit()
 	conn.close()
 
-#delete table
-def delete_table():
-	# Connect to the SQLite database
-	conn = sqlite3.connect('db_messages.db')
-	c = conn.cursor()
-
-	# Execute the SQL statement to drop the table
-	c.execute('DROP TABLE IF EXISTS db_messages')
-
-	# Commit the changes and close the connection
-	conn.commit()
-	conn.close()
-	print("Table 'db_messages' deleted successfully.")
-
 
 # Call this function at the start of your program
 create_database()

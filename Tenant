@@ -1,0 +1,2049 @@
+import tkinter as tk
+from tkinter import StringVar, Frame, Label, Entry, Button, Radiobutton, filedialog
+import sqlite3
+import tkinter.messagebox as messagebox
+from tkinter import messagebox as mess
+import tkinter.simpledialog as tsd
+from PIL import Image, ImageTk
+import cv2, os
+import csv
+import smtplib
+import random
+import datetime
+import time
+from deepface import DeepFace
+import sqlite3
+import pickle
+import urllib.request
+import threading
+import webbrowser
+from flask import Flask, render_template
+from turtle import distance
+from urllib import request
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email_validator import validate_email, EmailNotValidError
+from tkcalendar import DateEntry
+import tkinter.ttk as ttk
+
+app = Flask(__name__)
+
+
+# 视频背景类
+class VideoApp:
+    def __init__(self, root, video_path, duration=20):
+        self.root = root
+        self.video_path = video_path
+        self.duration = duration
+
+        # 获取屏幕尺寸并设置全屏
+        self.screen_width = self.root.winfo_screenwidth()
+        self.screen_height = self.root.winfo_screenheight()
+        self.root.geometry(f"{self.screen_width}x{self.screen_height}")
+
+        # 打开视频文件
+        self.cap = cv2.VideoCapture(self.video_path)
+
+        if not self.cap.isOpened():
+            print("Error: 无法打开视频文件。")
+            return
+
+        # 创建一个Canvas来显示视频帧
+        self.canvas = tk.Canvas(self.root, width=self.screen_width, height=self.screen_height)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        # 用于存储图像的引用，避免被垃圾回收
+        self.tk_image = None
+
+        # 启动视频播放
+        self.play_video()
+
+    def play_video(self):
+        ret, frame = self.cap.read()
+
+        if ret:
+            # 调整视频帧大小以适应窗口大小
+            frame = cv2.resize(frame, (self.screen_width, self.screen_height))
+
+            # 转换颜色 BGR -> RGB（PIL和Tkinter使用RGB格式）
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            # 转换为PIL图像
+            image = Image.fromarray(frame)
+
+            # 转换为ImageTk对象
+            self.tk_image = ImageTk.PhotoImage(image)
+
+            # 清除先前的图像
+            self.canvas.delete("all")
+
+            # 在Canvas上显示图像
+            self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
+
+            # 在指定的持续时间后调用自身以继续播放
+            self.root.after(int(self.duration), self.play_video)
+        else:
+            # 如果视频播放完毕，重头开始播放
+            self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.play_video()
+
+
+class RentalSystemApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Main")
+        self.root.geometry("1920x1080")
+        self.root.state("zoomed")
+
+        # Initialize video capture first
+        self.video_path = "C:/Kai Shuang/BAYAN LEPAS.mp4"  # Update this path
+        self.cap = cv2.VideoCapture(self.video_path)
+        
+        if not self.cap.isOpened():
+            print("Error: Cannot open video file.")
+            return
+
+        # Load images
+        self.profile_image_original = Image.open("C:/Kai Shuang/profile_logo.png")
+        self.profile_image_resized = self.profile_image_original.resize((32, 32))
+        self.profile_image = ImageTk.PhotoImage(self.profile_image_resized)
+
+        self.maybank_logo_original = Image.open("C:/Kai Shuang/Maybank-Logo.png")
+        self.maybank_logo_resized = self.maybank_logo_original.resize((80, 55))
+        self.maybank_logo = ImageTk.PhotoImage(self.maybank_logo_resized)
+
+        self.hsbc_logo_original = Image.open("C:/Kai Shuang/hsbc-logo.png")
+        self.hsbc_logo_resized = self.hsbc_logo_original.resize((80, 50))
+        self.hsbc_logo = ImageTk.PhotoImage(self.hsbc_logo_resized)
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        # 创建顶部布局
+        self.create_top_bar()
+
+        # 创建中间按钮部分
+        self.create_buttons()
+
+        # 创建视频框部分
+        self.create_video_frame()
+
+    # 创建顶部栏
+    def create_top_bar(self):
+        self.top_frame = tk.Frame(self.root, bg="orange", height=100)
+        self.top_frame.pack(fill=tk.X)
+
+        # 左侧图标
+        logo = tk.Label(self.top_frame, text="🏛", font=("Arial", 32), bg="orange", fg="white")
+        logo.pack(side=tk.LEFT, padx=10)
+
+        # 中间标题 (使用expand=True将其居中对齐)
+        title = tk.Label(self.top_frame, text="Government Rental System", font=("Arial", 24), bg="orange", fg="white")
+        title.pack(side=tk.LEFT, padx=10, expand=True, fill=tk.X)
+
+        # 右侧 Profile 按钮（带图标）
+        profile_button = tk.Button(self.top_frame, image=self.profile_image, relief="solid",
+                                   command=self.on_profile_click)
+        profile_button.pack(side=tk.LEFT, padx=10)
+
+
+    # 创建四个按钮
+    def create_buttons(self):
+        self.buttons_frame = tk.Frame(self.root, bg="yellow")
+        self.buttons_frame.pack(fill=tk.X)
+
+        # 新的内部框架来居中按钮
+        self.inner_frame = tk.Frame(self.buttons_frame, bg="yellow")
+        self.inner_frame.pack(pady=20)
+
+        # 四个主要按钮居中对齐
+        attendance_button = tk.Button(self.inner_frame, text="Attendance", font=("Arial", 16), width=12,
+                                      command=attendance)
+        attendance_button.grid(row=0, column=0, padx=20, pady=10)
+
+        my_stall_button = tk.Button(self.inner_frame, text="My Stall", font=("Arial", 16), width=12,
+                                    command=self.on_my_stall_click)
+        my_stall_button.grid(row=0, column=1, padx=20, pady=10)
+
+        notification_button = tk.Button(self.inner_frame, text="My Notification", font=("Arial", 16), width=12,
+                                        command=self.on_contract_click)
+        notification_button.grid(row=0, column=2, padx=20, pady=10)
+
+        payment_button = tk.Button(self.inner_frame, text="Payment", font=("Arial", 16), width=12,
+                                   command=self.on_payment_click)
+        payment_button.grid(row=0, column=3, padx=20, pady=10)
+
+        payment_button = tk.Button(self.inner_frame, text="Payment History / Receipt", font=("Arial", 16), width=12,
+                                   command=self.on_payment_click)
+        payment_button.grid(row=0, column=4, padx=20, pady=10)
+
+        logout_button = tk.Button(self.inner_frame, text="Log Out", font=("Arial", 16), width=12, command=self.log_out)
+        logout_button.grid(row=0, column=5, padx=20, pady=10)
+
+    def log_out(self):
+        self.root.destroy()  # 关闭当前窗口
+        root.deiconify()  # 恢复主窗口显示
+        show_login_frame()  # 显示登录页面
+
+    def create_video_frame(self):
+        self.video_frame = tk.Frame(self.root, bg="orange")
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create canvas for video
+        self.canvas = tk.Canvas(self.video_frame, 
+                              width=self.root.winfo_screenwidth(),
+                              height=self.root.winfo_screenheight())
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Start video playback
+        self.play_video()
+
+    def play_video(self):
+        if hasattr(self, 'cap') and self.cap.isOpened():
+            ret, frame = self.cap.read()
+            if ret:
+                # Resize frame to fit window
+                frame = cv2.resize(frame, 
+                                 (self.root.winfo_screenwidth(),
+                                  self.root.winfo_screenheight()))
+                
+                # Convert frame from BGR to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Convert to PhotoImage
+                image = Image.fromarray(frame)
+                self.photo = ImageTk.PhotoImage(image=image)
+                
+                # Update canvas
+                self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
+                
+                # Schedule next frame
+                self.root.after(20, self.play_video)
+            else:
+                # Reset video to beginning if it ends
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                self.play_video()
+
+    def __del__(self):
+        # Release video capture when object is destroyed
+        if hasattr(self, 'cap'):
+            self.cap.release()
+
+    def create_stall_frame(self):
+        stall_address_var = StringVar()
+        postcode_var = StringVar()
+        rental_period_var = StringVar()
+        contract_start_date_var = StringVar()
+        contract_end_date_var = StringVar()
+        rental_amount_var = StringVar()
+        deposit_amount_var = StringVar()
+
+        self.stall_frame = tk.Frame(self.root, bg="white", padx=20, pady=20)
+        self.stall_frame.pack(expand=True)
+
+        self.upload_stall_frame = tk.Frame(self.stall_frame, bg="white", padx=30, pady=30)
+        self.upload_stall_frame.pack()
+
+        stall_Label = tk.Label(self.upload_stall_frame, text="My Stall", font=("Time New Roman", 20, "bold"),
+                               bg="white")
+        stall_Label.grid(row=0, column=0, columnspan=2, pady=20)
+
+        Stall_Address_label = tk.Label(self.upload_stall_frame, text="Stall_Address", bg='lightsteelblue')
+        Stall_Address_label.grid(row=1, column=0, pady=20)
+
+        Stall_Address_entry = Entry(self.upload_stall_frame, textvariable=stall_address_var, font=('Arial', 16),
+                                    highlightbackground="black", width=25,
+                                    highlightcolor="black", highlightthickness=2, state="readonly")
+        Stall_Address_entry.grid(row=1, column=1, padx=5, pady=20)
+
+        postcode_label = tk.Label(self.upload_stall_frame, text="Postcode", bg='lightsteelblue')
+        postcode_label.grid(row=1, column=2, pady=20)
+
+        postcode_entry = Entry(self.upload_stall_frame, textvariable=postcode_var, font=('Arial', 16),
+                               highlightbackground="black", width=25,
+                               highlightcolor="black", highlightthickness=2, state="readonly")
+        postcode_entry.grid(row=1, column=3, padx=5, pady=20)
+
+        rental_period_label = tk.Label(self.upload_stall_frame, text="Rental Period", bg='lightsteelblue')
+        rental_period_label.grid(row=4, column=1, pady=20)
+
+        rental_period_entry = Entry(self.upload_stall_frame, textvariable=rental_period_var, font=('Arial', 16),
+                                    highlightbackground="black", width=10,
+                                    highlightcolor="black", highlightthickness=2, state="readonly")
+        rental_period_entry.grid(row=4, column=2, padx=5, pady=20)
+
+        contract_start_date_label = tk.Label(self.upload_stall_frame, text="Contract Start Date", bg='lightsteelblue')
+        contract_start_date_label.grid(row=3, column=0, pady=20)
+
+        contract_start_date_entry = Entry(self.upload_stall_frame, textvariable=contract_start_date_var,
+                                          font=('Arial', 16),
+                                          highlightbackground="black", width=25,
+                                          highlightcolor="black", highlightthickness=2, state="readonly")
+        contract_start_date_entry.grid(row=3, column=1, padx=5, pady=20)
+
+        contract_end_date_label = tk.Label(self.upload_stall_frame, text="Contract End Date", bg='lightsteelblue')
+        contract_end_date_label.grid(row=3, column=2, pady=20)
+
+        contract_end_date_entry = Entry(self.upload_stall_frame, textvariable=contract_end_date_var, font=('Arial', 16),
+                                        highlightbackground="black", width=25,
+                                        highlightcolor="black", highlightthickness=2, state="readonly")
+        contract_end_date_entry.grid(row=3, column=3, padx=5, pady=20)
+
+        rental_amount_label = tk.Label(self.upload_stall_frame, text="Rental Amount", bg='lightsteelblue')
+        rental_amount_label.grid(row=2, column=0, pady=20)
+
+        rental_amount_entry = Entry(self.upload_stall_frame, textvariable=rental_amount_var, font=('Arial', 16),
+                                    highlightbackground="black", width=25,
+                                    highlightcolor="black", highlightthickness=2, state="readonly")
+        rental_amount_entry.grid(row=2, column=1, padx=5, pady=20)
+
+        deposit_amount_label = tk.Label(self.upload_stall_frame, text="Deposit Amount", bg='lightsteelblue')
+        deposit_amount_label.grid(row=2, column=2, pady=20)
+
+        deposit_amount_entry = Entry(self.upload_stall_frame, textvariable=deposit_amount_var, font=('Arial', 16),
+                                     highlightbackground="black", width=25,
+                                     highlightcolor="black", highlightthickness=2, state="readonly")
+        deposit_amount_entry.grid(row=2, column=3, padx=5, pady=20)
+
+        btn_view_contract = tk.Button(self.upload_stall_frame, text="View My Contract", font=("Arial", 12), width=20,
+                                      command=self.change_password_window)
+        btn_view_contract.grid(row=5, column=2, padx=20, pady=10)
+        btn_view_contract = tk.Button(self.upload_stall_frame, text="Log Out", font=("Arial", 12), width=20,
+                                      command=self.stall_log_out)
+        btn_view_contract.grid(row=6, column=2, padx=20, pady=10)
+
+    def stall_log_out(self):
+        self.stall_frame.pack_forget()
+        self.upload_stall_frame.pack_forget()
+
+        # 重新显示按钮和视频框架
+        self.buttons_frame.pack(fill=tk.X)
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+    def on_profile_click(self):
+
+        self.buttons_frame.pack_forget()
+        self.video_frame.pack_forget()
+
+        self.profile()
+
+    def profile(self):
+        def fetch_tenant_data(Tenant_id):
+            conn = sqlite3.connect("Government_Rental_System.db")
+            cursor = conn.cursor()
+
+            # Fetch tenant data
+            cursor.execute(
+                "SELECT Username, IC_Number, Gender ,Email_Address , Phone_Number , Password  FROM Tenant WHERE Tenant_id = ?",
+                (Tenant_id,))
+            tenant_data = cursor.fetchone()
+
+            return tenant_data
+
+        def update_tenant_data(Tenant_id, new_Username, new_IC_Number, new_Gender, new_Email_Address, new_Phone_Number,
+                               new_Password):
+            conn = sqlite3.connect("Government_Rental_System.db")
+            cursor = conn.cursor()
+
+            try:
+                # Check if the new username is already in use by another tenant
+                cursor.execute("SELECT tenant_id FROM tenant WHERE username = ? AND tenant_id != ?",
+                               (new_IC_Number, Tenant_id))
+                existing_tenant = cursor.fetchone()
+
+                if existing_tenant:
+                    messagebox.showerror("IC Number Error",
+                                         "IC Number already exists. Please choose a different username.")
+                    return False
+
+                # Update tenant data
+                cursor.execute(
+                    "UPDATE Tenant SET Username = ?,IC_Number=?, Gender=? ,Email_Address = ?, Phone_Number = ?, Password = ? WHERE Tenant_id = ?",
+                    (new_Username, new_IC_Number, new_Gender, new_Email_Address, new_Phone_Number, new_Password,
+                     Tenant_id)
+                )
+                conn.commit()
+
+                # Update logged_in_user
+                login_profile['IC_Number'] = new_IC_Number
+                login_profile['password'] = new_Password
+
+                return True
+
+            except sqlite3.Error as e:
+                print(f"SQLite error: {e}")
+                return False
+
+        # Function to load tenant data into labels and allow editing
+        def load_tenant_data_view(Tenant_id):
+            tenant_data = fetch_tenant_data(Tenant_id)
+            if tenant_data:
+                username_var.set(tenant_data[0])
+                ic_number_var.set(tenant_data[1])
+                gender_var.set(tenant_data[2])
+                email_address_var.set(tenant_data[3])
+                phone_number_var.set(tenant_data[4])
+                password_var.set(tenant_data[5])
+
+        # Function to save tenant data
+        def save_tenant_data(Tenant_id):
+            username = username_var.get()
+            ic_number = ic_number_var.get  # 强制转换为字符串，确保包括前导0
+            gender = gender_var.get()
+            phone_number = phone_number_var.get()
+            email_address = email_address_var.get()
+            password = password_var.get()
+
+            if update_tenant_data(Tenant_id, username, ic_number, gender, email_address, phone_number, password):
+                load_tenant_data_view(Tenant_id)
+                messagebox.showinfo("Success", "Tenant information updated successfully!")
+            else:
+                load_tenant_data_view(Tenant_id)
+
+        Tenant_id = self.fetch_tenant_id(login_profile['IC_Number'], login_profile['Password'])
+
+        # Create entry variables
+        username_var = StringVar()
+        ic_number_var = StringVar()
+        gender_var = StringVar()
+        email_address_var = StringVar()
+        phone_number_var = StringVar()
+        password_var = StringVar()
+
+        # Load tenant data into the entry variables
+        load_tenant_data_view(Tenant_id)
+
+        self.profile_frame = tk.Frame(self.root, bg="white", padx=50, pady=50)
+        self.profile_frame.pack(expand=True)
+
+        profile_frame = tk.Frame(self.profile_frame, bg="yellow", padx=50, pady=50)
+        profile_frame.pack()
+
+        title_label = tk.Label(profile_frame, text="My Profile", font=("Arial", 32, "bold"), bg="white")
+        title_label.grid(row=0, column=0, pady=20)
+
+        title_label = tk.Label(profile_frame, text="Username", bg='lightsteelblue')
+        title_label.grid(row=1, column=0, pady=20)
+
+        title_label = tk.Label(profile_frame, text="IC Number", bg='lightsteelblue')
+        title_label.grid(row=2, column=0, pady=20)
+
+        title_label = tk.Label(profile_frame, text="Gender", bg='lightsteelblue')
+        title_label.grid(row=3, column=0, pady=20)
+
+        title_label = tk.Label(profile_frame, text="Phone Number", bg='lightsteelblue')
+        title_label.grid(row=4, column=0, pady=20)
+
+        title_label = tk.Label(profile_frame, text="Email Address", bg='lightsteelblue')
+        title_label.grid(row=5, column=0, pady=20)
+
+        title_label = tk.Label(profile_frame, text="Password", bg='lightsteelblue')
+        title_label.grid(row=6, column=0, pady=20)
+
+        # Create labels and entry fields on the canvas
+        username_entry = Entry(profile_frame, textvariable=username_var, font=('Arial', 16), width=25,
+                               highlightbackground="black",
+                               highlightcolor="black", highlightthickness=2, state="readonly")
+        username_entry.grid(row=1, column=1, padx=5, pady=20)
+
+        Ic_number_entry = Entry(profile_frame, textvariable=ic_number_var, font=('Arial', 16),
+                                highlightbackground="black", width=25,
+                                highlightcolor="black", highlightthickness=2, state="readonly")
+        Ic_number_entry.grid(row=2, column=1, padx=5, pady=20)
+
+        Gender_entry = Entry(profile_frame, textvariable=gender_var, font=('Arial', 16), width=25,
+                             highlightbackground="black",
+                             highlightcolor="black", highlightthickness=2, state="readonly")
+        Gender_entry.grid(row=3, column=1, padx=5, pady=20)
+
+        phone_entry = Entry(profile_frame, textvariable=phone_number_var, font=('Arial', 16), width=25,
+                            highlightbackground="black",
+                            highlightcolor="black", highlightthickness=2, state="readonly")
+        phone_entry.grid(row=4, column=1, padx=5, pady=20)
+
+        email_address_entry = Entry(profile_frame, textvariable=email_address_var, font=('Arial', 16), width=25,
+                                    highlightbackground="black", highlightcolor="black", highlightthickness=2,
+                                    state="readonly")
+        email_address_entry.grid(row=5, column=1, padx=5, pady=20)
+
+        password_entry = Entry(profile_frame, textvariable=password_var, show='*', font=('Arial', 16), width=25,
+                               highlightbackground="black", highlightcolor="black", highlightthickness=2,
+                               state="readonly")
+        password_entry.grid(row=6, column=1, padx=5, pady=20)
+
+        btn_change_password = tk.Button(profile_frame, text="Change Password", font=("Arial", 16), width=20,
+                                        command=self.change_password_window)
+        btn_change_password.grid(row=7, column=0, padx=20, pady=10)
+
+        btn_logout = tk.Button(profile_frame, text="Logout", font=("Arial", 16), width=12, command=self.back_click)
+        btn_logout.grid(row=7, column=1, padx=20, pady=10)
+
+    def back_click(self):
+        # 隐藏支付界面
+        self.profile_frame.pack_forget()
+
+        # 重新显示按钮和视频框架
+        self.buttons_frame.pack(fill=tk.X)
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+    def change_password_window(self):
+        # 创建一个新窗口
+        change_password_window = tk.Toplevel()
+        change_password_window.title("Change Password")
+        change_password_window.geometry("400x300")
+        change_password_window.config(bg='lightblue')
+
+        # 创建密码输入框
+        label_new_password = Label(change_password_window, text="New Password:", font=('Arial', 14), bg='lightblue')
+        label_new_password.grid(row=0, column=0, padx=10, pady=10, sticky="e")
+
+        entry_new_password = Entry(change_password_window, show='*', font=('Arial', 14))
+        entry_new_password.grid(row=0, column=1, padx=10, pady=10, sticky="w")
+
+        label_confirm_password = Label(change_password_window, text="Confirm Password:", font=('Arial', 14),
+                                       bg='lightblue')
+        label_confirm_password.grid(row=1, column=0, padx=10, pady=10, sticky="e")
+
+        entry_confirm_password = Entry(change_password_window, show='*', font=('Arial', 14))
+        entry_confirm_password.grid(row=1, column=1, padx=10, pady=10, sticky="w")
+
+        # 创建保存按钮
+        btn_save_password = Button(change_password_window, text="Save Password", font=('Arial', 14), bg='lightgreen',
+                                   command=lambda: self.save_password(entry_new_password, entry_confirm_password,
+                                                                      change_password_window))
+        btn_save_password.grid(row=2, columnspan=2, pady=20)
+
+        btn_cancel = Button(change_password_window, text="Cancel", font=('Arial', 14), bg='lightcoral',
+                            command=change_password_window.destroy)
+        btn_cancel.grid(row=3, columnspan=2, pady=10)
+
+    def save_password(self, entry_new_password, entry_confirm_password, window):
+        new_password = entry_new_password.get()
+        confirm_password = entry_confirm_password.get()
+
+        # 查密码是否配
+        if new_password != confirm_password:
+            messagebox.showerror("Error", "Passwords do not match!")
+            return
+
+        if len(new_password) < 6:
+            messagebox.showerror("Error", "Password must be at least 6 characters long!")
+            return
+
+        try:
+            # 更新数据库中的密码
+            Tenant_id = self.fetch_tenant_id(login_profile['IC_Number'], login_profile['Password'])
+            conn = sqlite3.connect("Government_Rental_System.db")
+            cursor = conn.cursor()
+            cursor.execute("UPDATE Tenant SET Password = ? WHERE Tenant_id = ?", (new_password, Tenant_id))
+            conn.commit()
+            messagebox.showinfo("Success", "Password updated successfully!")
+
+            # 更新全局变量
+            login_profile['Password'] = new_password
+
+            # 关闭窗口
+            window.destroy()
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Error", f"Error updating password: {e}")
+
+    # 支付按钮被点击时的功能
+    def on_payment_click(self):
+        # 隐藏按钮和框架
+        self.buttons_frame.pack_forget()
+        self.video_frame.pack_forget()
+
+        # 创建支付界面
+        self.create_payment_screen()
+
+    # 创建支付界面
+    def create_payment_screen(self):
+        # 创建中央框架
+        self.central_frame = tk.Frame(self.root, bg="white", padx=20, pady=20)
+        self.central_frame.pack(expand=True)
+
+        self.payment_frame = tk.Frame(self.central_frame, bg="white", padx=20, pady=20)
+        self.payment_frame.pack()
+
+        # 标题
+        title_label = tk.Label(self.payment_frame, text="ONLINE BANKING", font=("Arial", 32, "bold"), bg="white")
+        title_label.grid(row=0, column=0, columnspan=2, pady=20)
+
+        # 支付信息框架
+        info_frame = tk.Frame(self.payment_frame, bg="lightgrey", padx=20, pady=20)
+        info_frame.grid(row=1, column=0, columnspan=2)
+
+        instruction_label = tk.Label(info_frame, text="Please select Interbank Giro (IBG) mode", font=("Arial", 14),
+                                     bg="lightgrey")
+        instruction_label.grid(row=0, column=0, columnspan=2, pady=10)
+
+        # Maybank信息和logo
+        maybank_logo_label = tk.Label(info_frame, image=self.maybank_logo, bg="lightgrey")
+        maybank_logo_label.grid(row=1, column=0, sticky="w", padx=10, pady=5)
+        maybank_details = tk.Label(info_frame, text="Account No: 5071 3424 2666\nPayee Name: XXXXXXX",
+                                   font=("Arial", 12), bg="lightgrey")
+        maybank_details.grid(row=1, column=1, sticky="w")
+
+        # HSBC信息和logo
+        hsbc_logo_label = tk.Label(info_frame, image=self.hsbc_logo, bg="lightgrey")
+        hsbc_logo_label.grid(row=2, column=0, sticky="w", padx=10, pady=5)
+        hsbc_details = tk.Label(info_frame, text="Account No: 105 154421 101\nPayee Name: XXXXXXX", font=("Arial", 12),
+                                bg="lightgrey")
+        hsbc_details.grid(row=2, column=1, sticky="w")
+
+        # 指示标签
+        reference_label = tk.Label(self.payment_frame,
+                                   text="Please specify your User ID or IC/Passport as reference during payment transfer.",
+                                   font=("Arial", 12), fg="red", bg="white")
+        reference_label.grid(row=2, column=0, columnspan=2, pady=10)
+
+        upload_label = tk.Label(self.payment_frame,
+                                text="Click on Upload Payment button once you have completed the payment.",
+                                font=("Arial", 12), fg="black", bg="white")
+        upload_label.grid(row=3, column=0, columnspan=2, pady=10)
+
+        # 上传付款按钮
+        upload_button = tk.Button(self.payment_frame, text="UPLOAD PAYMENT", font=("Arial", 16), bg="red", fg="white",
+                                  command=self.create_upload_payment_screen)
+        upload_button.grid(row=4, column=0, pady=20, padx=20)
+
+        # 返回按钮
+        back_button = tk.Button(self.payment_frame, text="BACK", font=("Arial", 16), bg="grey", fg="white",
+                                command=self.on_back_click)
+        back_button.grid(row=4, column=1, pady=20, padx=20)
+
+    def create_upload_payment_screen(self):
+        self.central_frame.destroy()
+        self.payment_frame.destroy()
+
+        self.upload_payment_frame = tk.Frame(self.root, bg="#C19A6B", padx=20, pady=20)
+        self.upload_payment_frame.pack(expand=True)
+
+        # 支付信息框架
+        self.upload_frame = tk.Frame(self.upload_payment_frame, bg="#C19A6B", padx=20, pady=20)  # 背景为类似你上传的颜色
+        self.upload_frame.pack()
+
+        title_label = tk.Label(self.upload_frame, text="UPLOAD PAYMENT PAGE", font=("Arial", 24, "bold"), bg="white",
+                               fg="black")
+        title_label.grid(row=0, column=0, columnspan=2, pady=20)
+
+        # 交易日期
+        transaction_date_label = tk.Label(self.upload_frame, text="Transaction Date:", font=("Arial", 12), bg="#C19A6B")
+        transaction_date_label.grid(row=1, column=0, sticky="e", padx=10, pady=5)
+        self.transaction_date_entry = DateEntry(self.upload_frame, width=19, background="darkblue", foreground="white",
+                                                borderwidth=2)
+        self.transaction_date_entry.grid(row=1, column=1, padx=10, pady=5)
+
+        tenant_id_label = tk.Label(self.upload_frame, text="Tenant ID:", font=("Arial", 12), bg="#C19A6B")
+        tenant_id_label.grid(row=2, column=0, sticky="e", padx=10, pady=5)
+        self.tenant_id_entry = Entry(self.upload_frame)
+        self.tenant_id_entry.grid(row=2, column=1, padx=10, pady=5)
+
+        # 支付金额
+        amount_paid_label = tk.Label(self.upload_frame, text="Amount Paid:", font=("Arial", 12), bg="#C19A6B")
+        amount_paid_label.grid(row=3, column=0, sticky="e", padx=10, pady=5)
+        self.amount_paid_entry = Entry(self.upload_frame)
+        self.amount_paid_entry.grid(row=3, column=1, padx=10, pady=5)
+
+        # 参考号
+        reference_label = tk.Label(self.upload_frame, text="Reference No:", font=("Arial", 12), bg="#C19A6B")
+        reference_label.grid(row=4, column=0, sticky="e", padx=10, pady=5)
+        self.reference_entry = Entry(self.upload_frame)
+        self.reference_entry.grid(row=4, column=1, padx=10, pady=5)
+
+        # 备注
+        remarks_label = tk.Label(self.upload_frame, text="Remarks:", font=("Arial", 12), bg="#C19A6B")
+        remarks_label.grid(row=5, column=0, sticky="e", padx=10, pady=5)
+        self.remarks_entry = Entry(self.upload_frame)
+        self.remarks_entry.grid(row=5, column=1, padx=10, pady=5)
+
+        # 上传文件按钮
+        upload_slip_label = tk.Label(self.upload_frame, text="Upload Slip:", font=("Arial", 12), bg="#C19A6B")
+        upload_slip_label.grid(row=6, column=0, sticky="e", padx=10, pady=5)
+        self.upload_button = tk.Button(self.upload_frame, text="Choose File", command=self.on_upload_click)
+        self.upload_button.grid(row=6, column=1, padx=10, pady=5)
+
+        # 这里我们添加一个label用于显示文件名
+        self.file_name_label = tk.Label(self.upload_frame, text="", font=("Arial", 8), bg="#C19A6B")
+        self.file_name_label.grid(row=6, column=2, padx=10, pady=5)
+
+        # 上传按钮
+        upload_button = tk.Button(self.upload_frame, text="UPLOAD", font=("Arial", 16), bg="red", fg="white",
+                                  command=self.database_payment)
+        upload_button.grid(row=7, column=0, pady=20, padx=20)
+
+        # 返回按钮
+        back_button = tk.Button(self.upload_frame, text="BACK", font=("Arial", 16), bg="grey", fg="white",
+                                command=self.payment_back_click)
+        back_button.grid(row=7, column=1, pady=20, padx=20)
+
+    # 返回按钮点击事件
+    def on_back_click(self):
+        # 隐藏支付界面
+        self.central_frame.pack_forget()
+        self.payment_frame.pack_forget()
+
+        # 重新显示按钮和视频框架
+        self.buttons_frame.pack(fill=tk.X)
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+    def payment_back_click(self):
+        self.upload_payment_frame.pack_forget()
+        self.upload_frame.pack_forget()
+
+        # 重新显示按钮和视频框架
+        self.buttons_frame.pack(fill=tk.X)
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+    def database_payment(self):
+        try:
+            conn = sqlite3.connect("Government_Rental_System.db")
+            cursor = conn.cursor()
+
+            # Check if Reference Number already exists
+            cursor.execute("SELECT * FROM Payment WHERE Reference_No=?", (self.reference_entry.get(),))
+            if cursor.fetchone():
+                messagebox.showerror("Error", "This Reference Number already submitted.")
+                return
+
+            # Insert data into the Payment table
+            cursor.execute(
+                "INSERT INTO Payment (Transaction_Date, Tenant_id, Rental_Amount, Reference_No, Remark, Upload_Slip) VALUES (?, ?, ?, ?, ?, ?)",
+                (self.transaction_date_entry.get(), self.tenant_id_entry.get(), self.amount_paid_entry.get(),
+                 self.reference_entry.get(), self.remarks_entry.get(), self.file_name_label.cget("text")))
+            conn.commit()
+
+            # 显示上传成功的消息框
+            messagebox.showinfo("Upload", "Upload Successful!")
+
+            # 清除输入框
+            self.transaction_date_entry.delete(0, tk.END)
+            self.tenant_id_entry.delete(0, tk.END)
+            self.amount_paid_entry.delete(0, tk.END)
+            self.reference_entry.delete(0, tk.END)
+            self.remarks_entry.delete(0, tk.END)
+            self.file_name_label.config(text="")
+
+            # 隐藏上传界面，返回到支付界面
+            self.upload_payment_frame.destroy()
+
+            # 重新创建支付界面
+            self.create_payment_screen()
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", str(e))
+        finally:
+            if conn:
+                conn.close()
+
+    # 传按钮点击事件
+    def on_upload_click(self):
+        # 打开文件对话框，选择文件
+        file_path = filedialog.askopenfilename(title="Select Payment Slip",
+                                               filetypes=(
+                                                   ("Image Files", "*.png;*.jpg;*.jpeg;*.pdf"), ("All Files", "*.*")))
+
+        if file_path:
+            # 将文件名显示在按钮面的label中
+            file_name = file_path.split("/")[-1]  # 仅显示文件名，不显示完整路径
+            self.file_name_label.config(text=file_name)
+            messagebox.showinfo("Upload Payment", "Payment slip uploaded successfully!")
+
+    # 各个按钮的功能函数
+
+    def on_my_stall_click(self):
+        self.buttons_frame.pack_forget()
+        self.video_frame.pack_forget()
+        self.create_stall_frame()
+
+    def on_contract_click(self):
+        messagebox.showinfo("My Contract", "My Contract button clicked!")
+
+    def fetch_tenant_id(self, ic_number, password):
+        try:
+            conn = sqlite3.connect("Government_Rental_System.db")
+            cursor = conn.cursor()
+
+            # 调试信息：打印传入的 IC Number 和密码
+            print(f"Fetching tenant with IC Number: {ic_number} and Password: {password}")
+
+            # 执行查询
+            cursor.execute("SELECT Tenant_id FROM Tenant WHERE IC_Number = ? AND Password = ?",
+                           (ic_number, password))
+            tenant_id = cursor.fetchone()
+
+            # 如果找到租户
+            if tenant_id:
+                print(f"Tenant found: {tenant_id[0]}")  # 打印找到的 Tenant_id
+                return tenant_id[0]  # 返回 Tenant_id
+            else:
+                # 没找到租户时，抛出异常并输出调试信息
+                print("No tenant found with the provided credentials.")
+                raise ValueError("No tenant found with the provided credentials.")
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"Error retrieving tenant ID: {e}")
+        finally:
+            conn.close()
+
+
+# Initialize Tkinter
+root = tk.Tk()
+root.title("Admin and Tenant Login")
+root.geometry("1920x1080")
+root.state("zoomed")
+
+# Variables
+USER_IC_NUMBER_LOGIN = StringVar()
+PASSWORD_LOGIN = StringVar()
+USERNAME_REGISTER = StringVar()
+IC_NUMBER_REGISTER = StringVar()
+GENDER = StringVar()
+PHONE_NUMBER = StringVar()
+EMAIL_ADDRESS = StringVar()
+PASSWORD_REGISTER = StringVar()
+CONFIRM_PASSWORD = StringVar()
+
+conn = None  # connection to database
+cursor = None  # use to execute the SQL queries and fetch results from db
+
+login_profile = {}
+
+
+# Connect to database and create table if it doesn't exist
+
+def Database():
+    global conn, cursor
+    conn = sqlite3.connect("Government_Rental_System.db")
+    cursor = conn.cursor()
+    cursor.execute("PRAGMA busy_timeout = 5000")  # 5秒等待时间
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Tenant (
+            Tenant_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Username TEXT NOT NULL, 
+            IC_Number TEXT NOT NULL CHECK(LENGTH(IC_Number) = 12),  
+            Gender TEXT NOT NULL, 
+            Phone_Number TEXT NOT NULL CHECK(LENGTH(Phone_Number) <= 11), 
+            Email_Address TEXT NOT NULL CHECK(LENGTH(Email_Address) <= 100), 
+            Password TEXT NOT NULL CHECK(LENGTH(Password) >= 8)
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Stall (
+            Stall_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Status INTEGER DEFAULT 0,  
+            Stall_Address TEXT NOT NULL,  
+            Postcode INTEGER NOT NULL, 
+            Tenant_id INTEGER NOT NULL,  
+            Username TEXT NOT NULL, 
+            Rental_Period INTEGER NOT NULL,
+            Contract_Start_Date TEXT,
+            Contract_End_Date TEXT,
+            Rental_Amount REAL,
+            Renewal_Status TEXT,
+            Deposit_Amount REAL,
+            Last_Payment_Date TEXT,
+            FOREIGN KEY (Tenant_id) REFERENCES Tenant (Tenant_id),
+            FOREIGN KEY (Username) REFERENCES Tenant (Username)  
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Payment (
+            Payment_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Transaction_Date DATE NOT NULL,
+            Tenant_id INTEGER NOT NULL, 
+            Rental_Amount REAL,
+            Reference_No INTEGER NOT NULL, 
+            Remark TEXT NOT NULL,  
+            Upload_Slip TEXT NOT NULL,
+            FOREIGN KEY (Tenant_id) REFERENCES Tenant (Tenant_id),
+            FOREIGN KEY (Rental_Amount) REFERENCES Stall (Rental_Amount)  
+        )"""
+    )
+
+    cursor.execute('''CREATE TABLE IF NOT EXISTS FaceEmbeddings 
+                 (Face_id INTEGER PRIMARY KEY, 
+                  Tenant_id INTEGER,
+                  name TEXT, 
+                  embedding BLOB,
+                  faceImagePath TEXT,
+                  FOREIGN KEY (Tenant_id) REFERENCES Tenant (Tenant_id))''')
+    cursor.execute(
+        '''CREATE TABLE IF NOT EXISTS Attendance (
+            Attendance_id INTEGER PRIMARY KEY, 
+            Tenant_id INTEGER, 
+            name TEXT, 
+            date TEXT, 
+            clock_in_time TEXT, 
+            clock_out_time TEXT, 
+            Clock_In_longitude REAL,
+            Clock_In_latitude REAL,
+            Clock_Out_longitude REAL,
+            Clock_Out_latitude REAL,
+            FOREIGN KEY (Tenant_id) REFERENCES Tenant (Tenant_id))''')
+    conn.commit()
+
+
+@app.route('/')
+def index():
+    return render_template('live_location.html')
+
+
+def open_browser():
+    webbrowser.open_new('http://127.0.0.1:5000')
+
+
+def start_flask():
+    threading.Thread(target=app.run, kwargs={'debug': True, 'use_reloader': False}).start()
+    threading.Timer(1, open_browser).start()
+
+
+############################################# FUNCTIONS ################################################
+
+def assure_path_exists(path):
+    dir = os.path.dirname(path)
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+
+##################################################################################
+
+def tick():
+    time_string = time.strftime('%H:%M:%S')
+    clock.config(text=time_string)
+    clock.after(200, tick)
+
+
+###################################################################################
+
+def contact():
+    contact_info = """
+    If you encounter any issues, please contact support:
+
+    Email: support@example.com
+    Phone: +1-234-567-8900
+
+    Or visit our support website:
+    https://support.example.com
+    """
+    messagebox.showinfo("Contact Support", contact_info)
+
+
+###################################################################################
+
+def check_haarcascadefile():
+    cascade_file = "haarcascade_frontalface_default.xml"
+    cascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml"
+
+    if not os.path.isfile(cascade_file):
+        try:
+            # Download the file if it doesn't exist
+            print("Downloading required face detection file...")
+            urllib.request.urlretrieve(cascade_url, cascade_file)
+            messagebox.showinfo("Success", "Required files have been downloaded successfully!")
+            return True
+        except Exception as e:
+            messagebox.showerror("Error",
+                                 f"Could not download required file.\nError: {str(e)}\n\n"
+                                 "Please contact support or download the file manually.")
+            return False
+    return True
+
+
+def clear():
+    txt.delete(0, 'end')
+    res = "1)Take Images  >>>  2)Save Profile"
+    message1.configure(text=res)
+
+
+def clear2():
+    txt2.delete(0, 'end')
+    res = "1)Take Images  >>>  2)Save Profile"
+    message1.configure(text=res)
+
+
+#######################################################################################
+
+def TakeImages():
+    Database()
+
+    if not check_haarcascadefile():
+        return
+
+    Tenant_id = (txt.get())
+    name = (txt2.get())
+
+    # Validate inputs
+    if not Tenant_id or not name:
+        messagebox.showwarning("Warning", "Please enter both Tenant ID and Name!")
+        return
+
+    if not ((name.isalpha()) or (' ' in name)):
+        messagebox.showwarning("Warning", "Please enter a valid name!")
+        return
+
+    try:
+        # Check if Tenant_id already exists
+        cursor.execute("SELECT Tenant_id FROM FaceEmbeddings WHERE Tenant_id=?", (Tenant_id,))
+        if cursor.fetchone() is not None:
+            messagebox.showwarning("Warning", "Tenant ID already exists!")
+            return
+
+        cam = cv2.VideoCapture(0)
+        harcascadePath = "haarcascade_frontalface_default.xml"
+        detector = cv2.CascadeClassifier(harcascadePath)
+
+        # Create preview window
+        cv2.namedWindow("Face Registration", cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("Face Registration", cv2.WND_PROP_TOPMOST, 1)
+
+        face_detected = False
+        while not face_detected:
+            ret, img = cam.read()
+            if not ret:
+                break
+
+            # Show live preview
+            preview_img = img.copy()
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            faces = detector.detectMultiScale(gray, 1.3, 5)
+
+            # Draw rectangle around detected face in preview
+            for (x, y, w, h) in faces:
+                cv2.rectangle(preview_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+            cv2.imshow("Face Registration", preview_img)
+
+            if len(faces) > 0:
+                x, y, w, h = faces[0]  # Take the first detected face
+                # Add padding around the face
+                padding = 30
+                x = max(0, x - padding)
+                y = max(0, y - padding)
+                w = min(img.shape[1] - x, w + 2 * padding)
+                h = min(img.shape[0] - y, h + 2 * padding)
+
+                # Crop face image
+                face_img = img[y:y + h, x:x + w]
+
+                try:
+                    # Generate embedding
+                    temp_path = f"temp_face_{Tenant_id}.jpg"
+                    cv2.imwrite(temp_path, face_img)
+
+                    # Generate embedding using DeepFace
+                    embedding = DeepFace.represent(img_path=temp_path,
+                                                   model_name="Facenet",
+                                                   enforce_detection=False)
+
+                    # Save the face image to a permanent location
+                    face_image_dir = "FaceImages"
+                    if not os.path.exists(face_image_dir):
+                        os.makedirs(face_image_dir)
+
+                    face_image_path = os.path.join(face_image_dir, f"face_{Tenant_id}.jpg")
+                    cv2.imwrite(face_image_path, face_img)
+
+                    # Store in database with image path
+                    embedding_bytes = pickle.dumps(embedding[0]["embedding"])
+                    cursor.execute("""INSERT INTO FaceEmbeddings 
+                                (Tenant_id, name, embedding, faceImagePath) 
+                                VALUES (?, ?, ?, ?)""",
+                                   (Tenant_id, name, embedding_bytes, face_image_path))
+                    conn.commit()
+
+                    # Clean up temporary file
+                    os.remove(temp_path)
+                    face_detected = True
+
+                    # Close only the capture window
+                    cv2.destroyWindow("Face Registration")
+
+                    # Show the captured face in a new window
+                    cv2.imshow('Captured Face', face_img)
+                    cv2.waitKey(2000)  # Show for 2 seconds
+                    cv2.destroyWindow('Captured Face')
+
+                    # Release camera
+                    cam.release()
+
+                    # Show success message
+                    messagebox.showinfo("Success", f"Face registered for {name} (Tenant ID: {Tenant_id}")
+                    message1.configure(text=f"Face registered for Tenant ID: {Tenant_id}")
+                    break
+
+                except Exception as e:
+                    print(f"Error processing face: {str(e)}")
+                    continue
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        # Clean up if no face was detected
+        if not face_detected:
+            cam.release()
+            cv2.destroyAllWindows()
+            messagebox.showwarning("Warning", "No face was detected. Please try again.")
+            return
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        print(f"Error: {str(e)}")
+
+    face_scan_register_window.withdraw()
+    show_register_frame()
+
+
+#######################################################################################
+
+def TrackImages():
+    global attendance_action
+
+    # 打开摄像头
+    cam = cv2.VideoCapture(0)
+
+    Database()
+
+    # Get the camera window
+    cv2.namedWindow("Taking Attendance", cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty("Taking Attendance", cv2.WND_PROP_TOPMOST, 1)
+
+    # Set start time
+    start_time = time.time()
+    recognized = False
+    name_recognized = None
+
+    while True:
+        ret, im = cam.read()
+        if not ret:
+            break
+
+        # Show the camera feed
+        cv2.imshow("Taking Attendance", im)
+
+        # Check if 20 seconds have passed
+        if time.time() - start_time > 20:
+            break
+
+        # 检测人脸
+        try:
+            # Use extract_faces instead of detectFace
+            faces = DeepFace.extract_faces(img_path=im, enforce_detection=False, detector_backend='opencv')
+
+            if len(faces) == 0:
+                continue
+
+            embedding = DeepFace.represent(im, model_name='Facenet', enforce_detection=False)[0]["embedding"]
+
+            # 从数据库获取已保存的嵌入
+            cursor.execute("SELECT Tenant_id, name, embedding FROM FaceEmbeddings")
+            records = cursor.fetchall()
+
+            for record in records:
+                saved_tenant_id, name, saved_embedding = record
+                similarity = (1 - distance) * 100
+                if similarity >= 80:  # Only recognize if similarity is 80% or higher
+                    ts = time.time()
+                    current_time = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                    current_date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
+
+                    # 更新数据库考勤记录
+                    if attendance_action == "Clock In":
+                        cursor.execute("""INSERT INTO Attendance 
+                                    (Tenant_id, name, date, clock_in_time) 
+                                    VALUES (?, ?, ?, ?)""",
+                                       (saved_tenant_id, name, current_date, current_time))
+                    else:
+                        cursor.execute("""UPDATE Attendance 
+                                    SET clock_out_time = ? 
+                                    WHERE Tenant_id = ? AND date = ?""",
+                                       (current_time, saved_tenant_id, current_date))
+
+                    conn.commit()
+                    recognized = True
+                    name_recognized = name
+                    break
+
+            if recognized:
+                break
+
+        except Exception as e:
+            continue
+
+        if cv2.waitKey(1) == ord('q'):
+            break
+
+    # Release camera and close windows
+    cam.release()
+    cv2.destroyAllWindows()
+
+    # Show result message
+    if recognized:
+        messagebox.showinfo("Attendance", f"{attendance_action} Successful for {name_recognized}")
+    else:
+        messagebox.showerror("Attendance", "Face Recognition Failed - No matching face found")
+
+    # 更新 TreeView 显示考勤记录
+    display_attendance()
+
+
+def display_attendance():
+    global cursor, tv
+    for row in tv.get_children():
+        tv.delete(row)
+
+    try:
+        # Reinitialize database connection if needed
+        if not conn or not cursor:
+            Database()
+
+        cursor.execute("""SELECT Tenant_id, name, date, clock_in_time, clock_out_time 
+                     FROM Attendance""")
+        rows = cursor.fetchall()
+        for row in rows:
+            tv.insert('', 'end', text=row[0], values=(row[1], row[2], row[3], row[4]))
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        Database()  # Try to reinitialize database connection
+
+
+@app.route('/update_location', methods=['POST'])
+def live_location():
+    data = request.json
+    latitude = data['latitude']
+    longtide = data['longitude']
+    username = login_profile.get('username')
+
+
+def clock_in():
+    global attendance_action
+    attendance_action = "Clock In"
+
+    # Ask for Tenant ID
+    id_number = tsd.askstring('ID Verification', 'Please enter your Tenant ID:')
+    if not id_number:
+        return
+
+    try:
+        # Check if Tenant ID exists in database
+        cursor.execute("SELECT name, faceImagePath FROM FaceEmbeddings WHERE Tenant_id=?", (id_number,))
+        result = cursor.fetchone()
+        if not result:
+            messagebox.showerror("Error", "Tenant ID not found in database!")
+            return
+
+        name, stored_image_path = result
+
+        # Open camera for face verification
+        cam = cv2.VideoCapture(0)
+        cv2.namedWindow("Face Verification", cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("Face Verification", cv2.WND_PROP_TOPMOST, 1)
+
+        face_detected = False
+        start_time = time.time()
+
+        while not face_detected and (time.time() - start_time) < 20:  # 20 second timeout
+            ret, frame = cam.read()
+            if not ret:
+                break
+
+            # Show live preview
+            cv2.imshow("Face Verification", frame)
+
+            try:
+                # Detect face in current frame
+                faces = DeepFace.extract_faces(img_path=frame,
+                                               enforce_detection=False,
+                                               detector_backend='opencv')
+
+                if len(faces) > 0:
+                    # Save current frame temporarily
+                    temp_path = "temp_verification.jpg"
+                    cv2.imwrite(temp_path, frame)
+
+                    # Compare with stored image
+                    result = DeepFace.verify(
+                        img1_path=stored_image_path,
+                        img2_path=temp_path,
+                        model_name="Facenet",
+                        enforce_detection=False
+                    )
+
+                    # Clean up temp file
+                    os.remove(temp_path)
+
+                    similarity = (1 - result["distance"]) * 100
+                    if similarity >= 80:  # Only verify if similarity is 80% or higher
+                        face_detected = True
+                        # Record attendance
+                        ts = time.time()
+                        current_time = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                        current_date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
+
+                        cursor.execute("""INSERT INTO Attendance 
+                                    (Tenant_id, name, date, clock_in_time) 
+                                    VALUES (?, ?, ?, ?)""",
+                                       (id_number, name, current_date, current_time))
+                        conn.commit()
+
+                        # Close camera window
+                        cam.release()
+                        cv2.destroyAllWindows()
+
+                        # Show success message
+                        messagebox.showinfo("Success",
+                                            f"Welcome {name}!\nVerification Successful (Similarity: {similarity:.2f}%)\nTime: {current_time}")
+
+                        # Start Flask server for live location
+                        start_flask()
+
+                        # Update attendance display
+                        display_attendance()
+
+                        # Destroy attendance window
+                        attendance_window.destroy()
+
+                        # Show main components
+
+                        return
+
+            except Exception as e:
+                print(f"Frame processing error: {str(e)}")
+                continue
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        # Clean up
+        cam.release()
+        cv2.destroyAllWindows()
+
+        if not face_detected:
+            messagebox.showerror("Error", "Face verification failed or timeout reached!")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        print(f"Error: {str(e)}")
+
+
+def clock_out():
+    global attendance_action
+    attendance_action = "Clock Out"
+
+    # Ask for Tenant ID
+    id_number = tsd.askstring('ID Verification', 'Please enter your Tenant ID:')
+    if not id_number:
+        return
+
+    try:
+        # Check if Tenant ID exists in database
+        cursor.execute("SELECT name, faceImagePath FROM FaceEmbeddings WHERE Tenant_id=?", (id_number,))
+        result = cursor.fetchone()
+        if not result:
+            messagebox.showerror("Error", "Tenant ID not found in database!")
+            return
+
+        name, stored_image_path = result
+
+        # Check if already clocked in today
+        current_date = datetime.datetime.now().strftime('%d-%m-%Y')
+        cursor.execute("""SELECT clock_in_time FROM Attendance 
+                    WHERE Tenant_id=? AND date=? AND clock_out_time IS NULL""",
+                       (id_number, current_date))
+        if not cursor.fetchone():
+            messagebox.showerror("Error", "No clock-in record found for today!")
+            return
+
+        # Open camera for face verification
+        cam = cv2.VideoCapture(0)
+        cv2.namedWindow("Face Verification", cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty("Face Verification", cv2.WND_PROP_TOPMOST, 1)
+
+        face_detected = False
+        start_time = time.time()
+
+        while not face_detected and (time.time() - start_time) < 20:  # 20 second timeout
+            ret, frame = cam.read()
+            if not ret:
+                break
+
+            # Show live preview
+            cv2.imshow("Face Verification", frame)
+
+            try:
+                # Detect face in current frame
+                faces = DeepFace.extract_faces(img_path=frame,
+                                               enforce_detection=False,
+                                               detector_backend='opencv')
+
+                if len(faces) > 0:
+                    # Save current frame temporarily
+                    temp_path = "temp_verification.jpg"
+                    cv2.imwrite(temp_path, frame)
+
+                    # Compare with stored image
+                    result = DeepFace.verify(
+                        img1_path=stored_image_path,
+                        img2_path=temp_path,
+                        model_name="Facenet",
+                        enforce_detection=False
+                    )
+
+                    # Clean up temp file
+                    os.remove(temp_path)
+
+                    similarity = (1 - result["distance"]) * 100
+                    if similarity >= 80:  # Only verify if similarity is 80% or higher
+                        face_detected = True
+                        start_flask()
+                        # Record clock out
+                        current_time = datetime.datetime.now().strftime('%H:%M:%S')
+
+                        cursor.execute("""UPDATE Attendance 
+                                    SET clock_out_time = ? 
+                                    WHERE Tenant_id = ? AND date = ? AND clock_out_time IS NULL""",
+                                       (current_time, id_number, current_date))
+                        conn.commit()
+
+                        # Close camera window
+                        cam.release()
+                        cv2.destroyAllWindows()
+
+                        # Show success message
+                        messagebox.showinfo("Success",
+                                            f"Goodbye {name}!\nVerification Successful (Similarity: {similarity:.2f}%)\nTime: {current_time}")
+
+                        # Update attendance display
+                        display_attendance()
+                        return
+
+            except Exception as e:
+                print(f"Frame processing error: {str(e)}")
+                continue
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        # Clean up
+        cam.release()
+        cv2.destroyAllWindows()
+
+        if not face_detected:
+            messagebox.showerror("Error", "Face verification failed or timeout reached!")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        print(f"Error: {str(e)}")
+
+
+def show_main_components(self):
+    # 显示顶部栏
+    self.top_frame.pack(fill=tk.X)
+    # 显示按钮区域
+    self.buttons_frame.pack(fill=tk.X)
+    # 显示视频框架区域
+    self.video_frame.pack(fill=tk.BOTH, expand=True)
+
+
+######################################## USED STUFFS ############################################
+
+
+######################################## GUI FRONT-END ###########################################
+def show_attendance_frame():
+    # Hide registration window
+    face_scan_register_window.withdraw()
+    # Show attendance window
+    attendance_window.deiconify()
+
+
+def show_registration_frame():
+    # Hide attendance window
+    attendance_window.withdraw()
+    # Show registration window
+    face_scan_register_window.deiconify()
+
+
+def attendance():
+    global attendance_window, message, tv, key, clock, cursor, conn  # Add c and conn here
+    key = ''
+
+    ts = time.time()
+    date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
+    day, month, year = date.split("-")
+
+    mont = {'01': 'January',
+            '02': 'February',
+            '03': 'March',
+            '04': 'April',
+            '05': 'May',
+            '06': 'June',
+            '07': 'July',
+            '08': 'August',
+            '09': 'September',
+            '10': 'October',
+            '11': 'November',
+            '12': 'December'
+            }
+
+    attendance_window = tk.Tk()
+    attendance_window.geometry("1920x1080")
+    attendance_window.resizable(True, False)
+    attendance_window.title("Attendance System")
+    attendance_window.configure(background='#2d420a')
+    attendance_window.state("zoomed")
+
+    # ... rest of your attendance window code ...
+
+    # Add button to switch to registration
+    frame1 = tk.Frame(attendance_window, bg="#c79cff")
+    frame1.place(relx=0.11, rely=0.17, relwidth=0.75, relheight=0.80)
+
+    message3 = tk.Label(attendance_window, text="Face Recognition Based Attendance Monitoring System", fg="white",
+                        bg="#2d420a",
+                        width=55, height=1, font=('comic', 29, ' bold '))
+    message3.place(x=80, y=10)
+
+    frame3 = tk.Frame(attendance_window, bg="#c4c6ce")
+    frame3.place(relx=0.52, rely=0.09, relwidth=0.09, relheight=0.07)
+
+    frame4 = tk.Frame(attendance_window, bg="")
+    frame4.place(relx=0.36, rely=0.09, relwidth=0.16, relheight=0.07)
+
+    datef = tk.Label(frame4, text=day + "-" + mont[month] + "-" + year + "  |  ", fg="#ff61e5", bg="#2d420a", width=55,
+                     height=1, font=('comic', 22, ' bold '))
+    datef.pack(fill='both', expand=1)
+
+    clock = tk.Label(frame3, fg="#ff61e5", bg="#2d420a", width=55, height=1, font=('comic', 22, ' bold '))
+    clock.pack(fill='both', expand=1)
+    tick()
+
+    head1 = tk.Label(frame1, text="            For Already Registered                       ", fg="black",
+                     bg="#00fcca", width=90, font=('comic', 17, ' bold '))
+    head1.place(x=0, y=0)
+
+    lbl3 = tk.Label(frame1, text="Attendance", width=20, fg="black", bg="#c79cff", height=1,
+                    font=('comic', 17, ' bold '))
+    lbl3.place(x=440, y=115)
+
+    ################## TREEVIEW ATTENDANCE TABLE ####################
+
+    tv = ttk.Treeview(frame1, height=13, columns=('name', 'date', 'clock_in_time', 'clock_out_time'))
+    tv.column('#0', width=82)
+    tv.column('name', width=130)
+    tv.column('date', width=130)
+    tv.column('clock_in_time', width=130)
+    tv.column('clock_out_time', width=130)
+    tv.place(x=280, y=150)
+    tv.heading('#0', text='ID')
+    tv.heading('name', text='NAME')
+    tv.heading('date', text='DATE')
+    tv.heading('clock_in_time', text='CLOCK IN')
+    tv.heading('clock_out_time', text='CLOCK OUT')
+
+    ###################### SCROLLBAR ################################
+
+    scroll = ttk.Scrollbar(frame1, orient='vertical', command=tv.yview)
+    scroll.place(x=867, y=151)
+    tv.configure(yscrollcommand=scroll.set)
+
+    ###################### BUTTONS ##################################
+
+    clock_in_button = tk.Button(frame1, text="Clock In", command=clock_in, fg="black", bg="#3ffc00", width=35, height=1,
+                                activebackground="white", font=('comic', 15, 'bold'))
+    clock_in_button.place(x=100, y=50)
+    clock_out_button = tk.Button(frame1, text="Clock Out", command=clock_out, fg="black", bg="#3ffc00", width=35,
+                                 height=1,
+                                 activebackground="white", font=('comic', 15, 'bold'))
+    clock_out_button.place(x=650, y=50)
+
+    quit_button = tk.Button(frame1, text="Quit", command=attendance_window.destroy, fg="black", bg="#eb4600", width=35,
+                            height=1,
+                            activebackground="white", font=('comic', 15, 'bold'))
+    quit_button.place(x=390, y=450)
+
+    display_attendance()
+    return attendance_window
+
+
+def face_scan_register():
+    global face_scan_register_window, message1, txt, txt2, key, clock, cursor, conn  # Add c and conn here
+    key = ''
+
+    ts = time.time()
+    date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
+    day, month, year = date.split("-")
+
+    mont = {'01': 'January',
+            '02': 'February',
+            '03': 'March',
+            '04': 'April',
+            '05': 'May',
+            '06': 'June',
+            '07': 'July',
+            '08': 'August',
+            '09': 'September',
+            '10': 'October',
+            '11': 'November',
+            '12': 'December'
+            }
+    face_scan_register_window = tk.Tk()
+    face_scan_register_window.geometry("1920x1080")
+    face_scan_register_window.resizable(True, False)
+    face_scan_register_window.title("Face Registration")
+    face_scan_register_window.configure(background='#2d420a')
+    face_scan_register_window.state("zoomed")
+
+    # ... rest of your registration window code ...
+    frame2 = tk.Frame(face_scan_register_window, bg="#c79cff")
+    frame2.place(relx=0.11, rely=0.17, relwidth=0.75, relheight=0.80)
+
+    frame3 = tk.Frame(face_scan_register_window, bg="#c4c6ce")
+    frame3.place(relx=0.52, rely=0.09, relwidth=0.25, relheight=0.07)
+
+    frame4 = tk.Frame(face_scan_register_window, bg="")
+    frame4.place(relx=0.36, rely=0.09, relwidth=0.25, relheight=0.07)
+
+    message3 = tk.Label(face_scan_register_window, text="Face Recognition Based Attendance Monitoring System",
+                        fg="white", bg="#2d420a",
+                        width=55, height=1, font=('comic', 29, ' bold '))
+    message3.place(x=80, y=10)
+
+    datef = tk.Label(frame4, text=day + "-" + mont[month] + "-" + year + "  |  ", fg="#ff61e5", bg="#2d420a", width=60,
+                     height=1, font=('comic', 22, ' bold '))
+    datef.pack(fill='both', expand=1)
+
+    clock = tk.Label(frame3, fg="#ff61e5", bg="#2d420a", width=55, height=1, font=('comic', 22, ' bold '))
+    clock.pack(fill='both', expand=1)
+    tick()
+
+    head2 = tk.Label(frame2, text="              For New Registrations                       ", fg="black",
+                     bg="#00fcca", width=90, font=('comic', 17, ' bold '))
+    head2.place(x=0, y=0)
+
+    lbl = tk.Label(frame2, text="Enter Tenant ID", width=20, height=1, fg="black", bg="#c79cff",
+                   font=('comic', 17, ' bold '))
+    lbl.place(x=460, y=55)
+
+    txt = tk.Entry(frame2, width=32, fg="black", font=('comic', 15, ' bold '))
+    txt.place(x=430, y=88)
+
+    lbl2 = tk.Label(frame2, text="Enter Name", width=20, fg="black", bg="#c79cff", font=('comic', 17, ' bold '))
+    lbl2.place(x=460, y=140)
+
+    txt2 = tk.Entry(frame2, width=32, fg="black", font=('comic', 15, ' bold '))
+    txt2.place(x=430, y=173)
+
+    message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile", bg="#c79cff", fg="black", width=39, height=1,
+                        activebackground="#3ffc00", font=('comic', 15, ' bold '))
+    message1.place(x=390, y=230)
+
+    message = tk.Label(frame2, text="", bg="#c79cff", fg="black", width=39, height=1, activebackground="#3ffc00",
+                       font=('comic', 16, ' bold '))
+    message.place(x=375, y=495)
+
+    res = 0
+    exists = os.path.isfile(r"StudentDetails\StudentDetails.csv")  # Use raw string
+    if exists:
+        with open(r"StudentDetails\StudentDetails.csv", 'r') as csvFile1:  # Use raw string
+            reader1 = csv.reader(csvFile1)
+            for l in reader1:
+                res = res + 1
+        res = (res // 2) - 1
+        csvFile1.close()
+    else:
+        res = 0
+    message.configure(text='Total Registrations till now  : ' + str(res))
+
+    ##################### MENUBAR #################################
+
+    menubar = tk.Menu(face_scan_register_window, relief='ridge')
+    filemenu = tk.Menu(menubar, tearoff=0)
+    filemenu.add_command(label='Exit', command=face_scan_register_window.destroy)
+    menubar.add_cascade(label='Help', font=('comic', 29, ' bold '), menu=filemenu)
+    face_scan_register_window.config(menu=menubar)  # Add this line
+
+    clearButton = tk.Button(frame2, text="Clear", command=clear, fg="black", bg="#ff7221", width=11,
+                            activebackground="white", font=('comic', 11, ' bold '))
+    clearButton.place(x=700, y=86)
+    clearButton2 = tk.Button(frame2, text="Clear", command=clear2, fg="black", bg="#ff7221", width=11,
+                             activebackground="white", font=('comic', 11, ' bold '))
+    clearButton2.place(x=700, y=172)
+    takeImg = tk.Button(frame2, text="Take Images", command=TakeImages, fg="white", bg="#6d00fc", width=34, height=1,
+                        activebackground="white", font=('comic', 15, ' bold '))
+    takeImg.place(x=410, y=300)
+
+    return face_scan_register_window
+
+
+def main():
+    global cursor, conn
+
+    # Initialize database connection
+    Database()
+
+    # Create both windows
+    attendance_window = attendance()
+    face_scan_register_window = face_scan_register()
+
+    # Initially hide attendance window
+    attendance_window.withdraw()
+
+    # Start with registration window
+    face_scan_register_window.mainloop()
+
+    # Don't close the database connection here
+
+    # The connection will be managed by init_database() when needed
+
+
+def send_verification_email(email_address):
+    global VERIFICATION_CODE
+    VERIFICATION_CODE = str(random.randint(100000, 999999))  # 生成六位数字验证码
+
+    # 电子邮件的内容
+    sender_email = "inti.all21115@gmail.com"
+    sender_password = "zsmw xujc wvln euvt"
+    subject = "Email Verification Code"
+    body = f"Your verification code is {VERIFICATION_CODE}. Please enter this code to complete your registration."
+
+    # 创建邮件
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = email_address
+    msg['Subject'] = subject
+
+    # 邮件正文
+    msg.attach(MIMEText(body, 'plain'))
+
+    # 使用Gmail SMTP服务器
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, email_address, msg.as_string())
+        server.quit()
+        messagebox.showinfo("Email Sent", f"Verification code has been sent to {email_address}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to send email: {str(e)}")
+
+
+# 验证箱格式
+def is_valid_email(email_address):
+    try:
+        valid = validate_email(email_address)
+        return True
+    except EmailNotValidError as e:
+        messagebox.showerror("Invalid Email", str(e))
+        return False
+
+
+# 显示验证码输入框
+def show_verification_frame():
+    for widget in root.winfo_children():
+        if isinstance(widget, tk.Frame):
+            widget.destroy()
+
+    frame = Frame(root, padx=20, pady=50)
+    frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+    frame.config(bg='lightsteelblue')
+
+    Label(frame, text="Enter Verification Code", bg='lightsteelblue').grid(row=0, column=0, pady=10)
+    verification_code_var = StringVar()
+    Entry(frame, textvariable=verification_code_var).grid(row=0, column=1, pady=10)
+
+    Button(frame, text="Verify", command=lambda: verify_code(verification_code_var.get()), bg='red', fg='white').grid(
+        row=1, column=1, pady=10)
+
+
+# 验证用户输入的验证码
+def verify_code(user_code):
+    if user_code == VERIFICATION_CODE:
+        # Verify code successful
+        # Destroy the verification frame and main window
+        for widget in root.winfo_children():
+            if isinstance(widget, tk.Frame):
+                widget.destroy()
+
+        # Create new main window
+        main_window = tk.Toplevel(root)
+        main_window.geometry("1920x1080")
+        main_window.state("zoomed")
+
+        # Create RentalSystemApp instance
+        app = RentalSystemApp(main_window)
+
+        # Show main components
+        app.top_frame.pack(fill=tk.X)
+        app.buttons_frame.pack(fill=tk.X)
+        app.video_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Update the database with registration info
+        complete_registration()
+
+        # Hide the root window
+        root.withdraw()
+
+
+
+    else:
+        messagebox.showerror("Error", "Invalid verification code.")
+
+
+# Role Selection Screen
+def show_role_selection():
+    for widget in root.winfo_children():
+        if isinstance(widget, tk.Frame):  # 保留视频背景
+            widget.destroy()
+
+    frame = Frame(root, padx=20, pady=50)
+    frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)  # 居中显示
+    frame.config(bg='#FAEBD7')
+
+    # 欢迎标签
+    Label(frame, text="Welcome!", font=('Impact', 24), bg='#FAEBD7').grid(row=0, column=0, columnspan=2, pady=20)
+
+    # Admin 和 Tenant 按钮
+    Button(frame, text="Admin", font=('Palatino', 18, 'bold'), bg="#FFCC80", width=15, bd=18,
+           command=show_admin_login_frame).grid(row=1, column=0, padx=20, pady=20)
+    Button(frame, text="Tenant", font=('Palatino', 18, 'bold'), bg="#FFCC80", width=15, bd=18,
+           command=show_login_frame).grid(row=1, column=1, padx=20, pady=20)
+
+
+# Admin Login Screen
+def show_admin_login_frame():
+    for widget in root.winfo_children():
+        if isinstance(widget, tk.Frame):  # 保留视频背景
+            widget.destroy()
+
+    frame = Frame(root, padx=20, pady=50)
+    frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)  # 居中显示
+    frame.config(bg='lightsteelblue')
+
+    Label(frame, text="Admin Login", font=('Arial', 24), bg='lightsteelblue').grid(row=0, column=0, columnspan=2,
+                                                                                   pady=10)
+
+    Label(frame, text="Admin Username", bg='lightsteelblue').grid(row=1, column=0)
+    Entry(frame, textvariable=USER_IC_NUMBER_LOGIN).grid(row=1, column=1)
+
+    Label(frame, text="Password", bg='lightsteelblue').grid(row=2, column=0)
+    Entry(frame, textvariable=PASSWORD_LOGIN, show='*').grid(row=2, column=1)
+
+    Button(frame, text="Login", command=login_admin, bg='red', fg='white').grid(row=3, column=1, pady=20)
+
+    Button(frame, text="Back", command=show_role_selection, fg='blue').grid(row=4, column=1)
+
+
+# Show Login frame for Tenants
+def show_login_frame():
+    for widget in root.winfo_children():
+        if isinstance(widget, tk.Frame):  # 保留视频背景
+            widget.destroy()
+
+    frame = Frame(root, padx=20, pady=50)
+    frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)  # 居中显示
+    frame.config(bg='#FFCC80')
+
+    Label(frame, text="Login", font=('Impact', 20), bg='#FFCC80').grid(row=0, column=0, columnspan=2, pady=20)
+
+    Label(frame, text="Welcome!Tenant", font=('Impact', 20), bg='#FFCC80').grid(row=1, column=0, columnspan=2, pady=20)
+
+    Label(frame, text="User IC Number", bg='#FFCC80').grid(row=2, column=0)
+    Entry(frame, textvariable=USER_IC_NUMBER_LOGIN).grid(row=2, column=1)
+
+    Label(frame, text="Password", bg='#FFCC80').grid(row=3, column=0)
+    Entry(frame, textvariable=PASSWORD_LOGIN, show='*').grid(row=3, column=1)
+
+    Button(frame, text="Login", command=login, bg='red', fg='white').grid(row=4, column=0, columnspan=2, pady=10)
+
+    Button(frame, text="Back", command=show_role_selection, fg='blue').grid(row=5, column=0, columnspan=2, pady=5)
+
+
+# Show Register frame for Tenants
+def show_register_frame():
+    for widget in root.winfo_children():
+        if isinstance(widget, tk.Frame):  # 保留视频背景
+            widget.destroy()
+
+    frame = Frame(root, padx=20, pady=50)
+    frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)  # 居中显示
+    frame.config(bg='lightsteelblue')
+
+    # 更新界面标题
+    Label(frame, text="Tenant Information", font=('Impact', 20), fg='black').grid(row=0, column=0, columnspan=2,
+                                                                                  pady=20)
+
+    Label(frame, text="Update Your Information And Change Your Password", font=('Impact', 20), fg='red').grid(row=1,
+                                                                                                              column=0,
+                                                                                                              columnspan=2,
+                                                                                                              pady=20)
+
+    # 用户名
+    Label(frame, text="Username", bg='lightsteelblue').grid(row=2, column=0, pady=10)
+    Entry(frame, textvariable=USERNAME_REGISTER).grid(row=2, column=1, pady=10)
+
+    # IC Number (从登录时读取，不允许修改)
+    Label(frame, text="IC Number", bg='lightsteelblue').grid(row=3, column=0)
+    ic_entry = Entry(frame, textvariable=IC_NUMBER_REGISTER, state='disabled')  # 禁用输入框
+    ic_entry.grid(row=3, column=1)
+    IC_NUMBER_REGISTER.set(login_profile['IC_Number'])  # 从登录信息读取IC Number
+
+    # 性别
+    Label(frame, text="Gender", bg='lightsteelblue').grid(row=4, column=0)
+    Radiobutton(frame, text="Male", variable=GENDER, value="Male", bg='lightsteelblue').grid(row=4, column=1)
+    Radiobutton(frame, text="Female", variable=GENDER, value="Female", bg='lightsteelblue').grid(row=4, column=2)
+
+    # 电话号码
+    Label(frame, text="Phone Number", bg='lightsteelblue').grid(row=5, column=0)
+    Entry(frame, textvariable=PHONE_NUMBER).grid(row=5, column=1)
+
+    # 邮箱地址
+    Label(frame, text="Email Address", bg='lightsteelblue').grid(row=6, column=0)
+    Entry(frame, textvariable=EMAIL_ADDRESS).grid(row=6, column=1)
+
+    # 密码
+    Label(frame, text="Password", bg='lightsteelblue').grid(row=7, column=0)
+    Entry(frame, textvariable=PASSWORD_REGISTER, show='*').grid(row=7, column=1)
+
+    # 确认密码
+    Label(frame, text="Confirm Password", bg='lightsteelblue').grid(row=8, column=0)
+    Entry(frame, textvariable=CONFIRM_PASSWORD, show='*').grid(row=8, column=1)
+
+    Button(frame, text="Face Scan", command=face_scan_register, bg='red', fg='white').grid(row=10, column=1, pady=10)
+
+    Button(frame, text="Save", command=save_update, bg='red', fg='white').grid(row=11, column=1, pady=10)
+
+
+def save_update():
+    try:
+        Database()
+        username = USERNAME_REGISTER.get().strip()
+        gender = GENDER.get().strip()
+        phone_number = PHONE_NUMBER.get().strip()
+        email_address = EMAIL_ADDRESS.get().strip()
+        password = PASSWORD_REGISTER.get().strip()
+        confirm_password = CONFIRM_PASSWORD.get().strip()
+
+        # Validate inputs
+        if len(phone_number) > 11:
+            messagebox.showerror("Error", "Phone Number must not exceed 11 characters.")
+            return
+
+        if len(password) < 8:
+            messagebox.showerror("Error", "Password must be at least 8 characters long.")
+            return
+
+        if password != confirm_password:
+            messagebox.showerror("Error", "Passwords do not match.")
+            return
+
+        if not is_valid_email(email_address):
+            return
+
+        # Declare TEMP_REGISTER_DATA as global to use it in other functions
+        global TEMP_REGISTER_DATA
+        TEMP_REGISTER_DATA = {
+            'username': username,
+            'gender': gender,
+            'phone_number': phone_number,
+            'email_address': email_address,
+            'password': password,
+            'ic_number': login_profile['IC_Number']  # Based on the logged-in user
+        }
+
+        # Send verification email
+        send_verification_email(email_address)
+
+        # Show the verification frame for user to input the verification code
+        show_verification_frame()
+
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+# Admin login function
+def login_admin():
+    # Add your admin login logic here
+    username = USER_IC_NUMBER_LOGIN.get()
+    password = PASSWORD_LOGIN.get()
+
+    if username == "admin" and password == "password":
+        messagebox.showinfo("Login Success", "Welcome, Admin!")
+    else:
+        messagebox.showerror("Login Failed", "Invalid admin credentials.")
+
+
+# Tenant login function
+def login():
+    Database()
+    ic_number = USER_IC_NUMBER_LOGIN.get()
+    password = PASSWORD_LOGIN.get()
+
+    cursor.execute("SELECT * FROM Tenant WHERE IC_Number=? AND Password=?", (ic_number, password))
+    if cursor.fetchone():
+        login_profile["IC_Number"] = USER_IC_NUMBER_LOGIN.get()
+        login_profile["Password"] = PASSWORD_LOGIN.get()
+        messagebox.showinfo("Login", "Login Successful!")
+        show_register_frame()
+
+    else:
+        messagebox.showerror("Login", "Invalid IC Number or Password")
+
+    conn.close()
+
+
+# Tenant register function
+# Tenant register function - 第一次点击"Register"时仅发送验证码
+
+# 完成注册操作 - 验证码正确后执行
+def complete_registration():
+    try:
+        Database()
+
+        global TEMP_REGISTER_DATA
+        data = TEMP_REGISTER_DATA
+
+        cursor.execute("SELECT * FROM Tenant WHERE IC_Number=?", (data['ic_number'],))
+        existing_tenant = cursor.fetchone()
+
+        if existing_tenant:
+            # Update user info in the Tenant table
+            cursor.execute("""
+                UPDATE Tenant
+                SET Username=?, Gender=?, Phone_Number=?, Email_Address=?, Password=?
+                WHERE IC_Number=?
+            """, (data['username'], data['gender'], data['phone_number'], data['email_address'], data['password'],
+                  data['ic_number']))
+            conn.commit()
+
+            # Update login_profile
+            login_profile['Password'] = data['password']
+
+            messagebox.showinfo("Update", "Your Information Updated Successfully!")
+
+        else:
+            messagebox.showerror("Error", "IC Number not found.")
+
+    except sqlite3.IntegrityError as e:
+        messagebox.showerror("Database Error", str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+video_file = "C:/Kai Shuang/Goverment Stall Rental System.mp4"  # 更新为你的实际视频路径
+video_app = VideoApp(root, video_file)
+
+# Setup database
+Database()
+
+# Show role selection frame
+show_role_selection()
+
+root.mainloop()

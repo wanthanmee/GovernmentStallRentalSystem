@@ -333,7 +333,7 @@ class RentalSystemApp:
 
             # Retrieve payment history records for the selected date
             query = """
-            SELECT Transaction_Date, Rental_Amount, Upload_Slip 
+            SELECT Transaction_Date, Rental_Amount, Bank_Slip 
             FROM Payment 
             WHERE Transaction_Date = ?
             """
@@ -362,18 +362,18 @@ class RentalSystemApp:
         tree_frame.pack(fill=tk.BOTH, expand=True, pady=10, padx=10)
 
         # Define Treeview Columns
-        columns = ("Transaction_Date", "Rental_Amount", "Upload_Slip")
+        columns = ("Transaction_Date", "Rental_Amount", "Bank_Slip")
         tree = ttk.Treeview(tree_frame, columns=columns, show="headings")
 
         # Set up column headings and widths
         tree.heading("Transaction_Date", text="Date")
         tree.heading("Rental_Amount", text="Amount")
-        tree.heading("Upload_Slip", text="Receipt")
+        tree.heading("Bank_Slip", text="Receipt")
 
         # Set column widths
         tree.column("Transaction_Date", width=200, anchor="center")
         tree.column("Rental_Amount", width=100, anchor="center")
-        tree.column("Upload_Slip", width=400, anchor="center")
+        tree.column("Bank_Slip", width=400, anchor="center")
 
         # Add Scrollbars to Treeview
         h_scrollbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=tree.xview)
@@ -506,19 +506,19 @@ class RentalSystemApp:
         self.profile()
 
     def profile(self):
-        def fetch_tenant_data(Tenant_id):
+        def fetch_tenant_data(Tenant_ID):
             conn = sqlite3.connect("govRental.db")
             cursor = conn.cursor()
 
             # Fetch tenant data
             cursor.execute(
                 "SELECT Tenant_Username, Tenant_IC_Number, Tenant_Gender ,Tenant_Email_Address , Tenant_Phone_Number , Tenant_Password  FROM Tenant WHERE Tenant_ID = ?",
-                (Tenant_id,))
+                (Tenant_ID,))
             tenant_data = cursor.fetchone()
 
             return tenant_data
 
-        def update_tenant_data(Tenant_id, new_Username, new_IC_Number, new_Gender, new_Email_Address, new_Phone_Number,
+        def update_tenant_data(Tenant_ID, new_Username, new_IC_Number, new_Gender, new_Email_Address, new_Phone_Number,
                                new_Password):
             conn = sqlite3.connect("govRental.db")
             cursor = conn.cursor()
@@ -526,7 +526,7 @@ class RentalSystemApp:
             try:
                 # Check if the new username is already in use by another tenant
                 cursor.execute("SELECT Tenant_ID FROM Tenant WHERE Tenant_Username = ? AND Tenant_ID != ?",
-                               (new_IC_Number, Tenant_id))
+                               (new_IC_Number, Tenant_ID))
                 existing_tenant = cursor.fetchone()
 
                 if existing_tenant:
@@ -538,7 +538,7 @@ class RentalSystemApp:
                 cursor.execute(
                     "UPDATE Tenant SET Tenant_Username = ?,Tenant_IC_Number=?, Tenant_Gender=? ,Tenant_Email_Address = ?, Tenant_Phone_Number = ?, Tenant_Password = ? WHERE Tenant_ID = ?",
                     (new_Username, new_IC_Number, new_Gender, new_Email_Address, new_Phone_Number, new_Password,
-                     Tenant_id)
+                     Tenant_ID)
                 )
                 conn.commit()
 
@@ -576,9 +576,9 @@ class RentalSystemApp:
                 load_tenant_data_view(Tenant_ID)
                 messagebox.showinfo("Success", "Tenant information updated successfully!")
             else:
-                load_tenant_data_view(Tenant_id)
+                load_tenant_data_view(Tenant_ID)
 
-        Tenant_id = self.fetch_tenant_id(login_profile['IC_Number'], login_profile['Password'])
+        Tenant_ID = self.fetch_tenant_id(login_profile['IC_Number'], login_profile['Password'])
 
         # Create entry variables
         username_var = StringVar()
@@ -589,7 +589,7 @@ class RentalSystemApp:
         password_var = StringVar()
 
         # Load tenant data into the entry variables
-        load_tenant_data_view(Tenant_id)
+        load_tenant_data_view(Tenant_ID)
 
         self.profile_frame = tk.Frame(self.root, bg="white", padx=50, pady=50)
         self.profile_frame.pack(expand=True)
@@ -713,10 +713,10 @@ class RentalSystemApp:
 
         try:
             # 更新数据库中的密码
-            Tenant_id = self.fetch_tenant_id(login_profile['IC_Number'], login_profile['Password'])
+            Tenant_ID = self.fetch_tenant_id(login_profile['IC_Number'], login_profile['Password'])
             conn = sqlite3.connect("govRental.db")
             cursor = conn.cursor()
-            cursor.execute("UPDATE Tenant SET Tenant_Password = ? WHERE Tenant_ID = ?", (new_password, Tenant_id))
+            cursor.execute("UPDATE Tenant SET Tenant_Password = ? WHERE Tenant_ID = ?", (new_password, Tenant_ID))
             conn.commit()
             messagebox.showinfo("Success", "Password updated successfully!")
 
@@ -897,7 +897,7 @@ class RentalSystemApp:
 
             # Insert data into the Payment table
             cursor.execute(
-                "INSERT INTO Payment_Test (Transaction_Date, Tenant_ID, Rental_Amount, Reference_No, Remark, Upload_Slip) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO Payment_Test (Transaction_Date, Tenant_ID, Rental_Amount, Reference_No, Remark, Bank_Slip) VALUES (?, ?, ?, ?, ?, ?)",
                 (self.transaction_date_entry.get(), self.tenant_id_entry.get(), self.amount_paid_entry.get(),
                  self.reference_entry.get(), self.remarks_entry.get(), self.file_name_label.cget("text")))
             conn.commit()
@@ -1005,18 +1005,101 @@ def Database():
     cursor = conn.cursor()
     cursor.execute("PRAGMA busy_timeout = 5000")  # 5秒等待时间
 
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Tenant (
+            Tenant_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Tenant_Username TEXT NOT NULL, 
+            Tenant_IC_Number TEXT NOT NULL CHECK(LENGTH(Tenant_IC_Number) = 12),  
+            Tenant_Gender TEXT NOT NULL, 
+            Tenant_Phone_Number TEXT NOT NULL CHECK(LENGTH(Tenant_Phone_Number) <= 11), 
+            Tenant_Email_Address TEXT NOT NULL CHECK(LENGTH(Tenant_Email_Address) <= 100), 
+            Tenant_Password TEXT NOT NULL CHECK(LENGTH(Tenant_Password) >= 8)
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Admin (
+            Admin_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Admin_Name TEXT NOT NULL, 
+            Admin_IC_Number TEXT NOT NULL CHECK(LENGTH(Admin_IC_Number) = 12),  
+            Admin_Gender TEXT NOT NULL, 
+            Admin_Phone_Number TEXT NOT NULL CHECK(LENGTH(Admin_Phone_Number) <= 11), 
+            Admin_Passcode TEXT NOT NULL,
+            Admin_Email_Address TEXT NOT NULL CHECK(LENGTH(Admin_Email_Address) <= 100), 
+            Admin_Join_Date TEXT NOT NULL
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Stall (
+            Stall_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Stall_Address TEXT NOT NULL,  
+            Postcode INTEGER NOT NULL, 
+            Status INTEGER DEFAULT 0,  
+            Tenant_ID INTEGER NOT NULL,  
+            Tenant_Username TEXT NOT NULL, 
+            Rental_Period INTEGER NOT NULL,
+            Contract_Start_Date TEXT,
+            Contract_End_Date TEXT,
+            Rental_Amount REAL,
+            Deposit_Amount REAL,
+            Last_Payment_Date TEXT,
+            Contract_Status TEXT,
+            FOREIGN KEY (Tenant_ID) REFERENCES Tenant (Tenant_ID),
+            FOREIGN KEY (Tenant_Username) REFERENCES Tenant (Tenant_Username)  
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Payment_Manage (
+            Payment_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Tenant_ID INTEGER NOT NULL,
+            Tenant_Username TEXT NOT NULL,
+            Stall_ID INTEGER NOT NULL,
+            Postcode INTEGER NOT NULL, 
+            Rental_Amount REAL,
+            Transaction_Date DATE NOT NULL,
+            Reference_No INTEGER NOT NULL, 
+            Remark TEXT NOT NULL,  
+            Bank_Slip TEXT NOT NULL,
+            Status TEXT NOT NULL,
+            Gov_Receipts TEXT NOT NULL,
+            Due_Date DATE NOT NULL,
+            Overdue_Status TEXT NOT NULL,
+            Overdue_Amount TEXT NOT NULL,
+            Total_Amount TEXT NOT NULL,
+            FOREIGN KEY (Tenant_ID) REFERENCES Tenant (Tenant_ID),
+            FOREIGN KEY (Tenant_Username) REFERENCES Tenant (Tenant_Username),
+            FOREIGN KEY (Stall_ID) REFERENCES Stall (Stall_ID),
+            FOREIGN KEY (Rental_Amount) REFERENCES Stall (Rental_Amount),
+            FOREIGN KEY (Postcode) REFERENCES Stall (Postcode)
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Business_Information (
+            Business_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Business_Name TEXT NOT NULL,
+            Licence_No TEXT NOT NULL,
+            Business_Hours TEXT NOT NULL, 
+            Location TEXT NOT NULL, 
+            Contact_No TEXT NOT NULL, 
+            Email_Address TEXT NOT NULL
+        )"""
+    )
+
     cursor.execute('''CREATE TABLE IF NOT EXISTS FaceEmbeddings 
                  (Face_id INTEGER PRIMARY KEY, 
-                  Tenant_id INTEGER,
+                  Tenant_IC_Number INTEGER,
                   name TEXT, 
                   embedding BLOB,
                   faceImagePath TEXT,
-                  FOREIGN KEY (Tenant_id) REFERENCES Tenant (Tenant_id))''')
+                  FOREIGN KEY (Tenant_IC_Number) REFERENCES Tenant (Tenant_IC_Number))''')
 
     cursor.execute(
         '''CREATE TABLE IF NOT EXISTS Attendance (
             Attendance_id INTEGER PRIMARY KEY, 
-            Tenant_id INTEGER, 
+            Tenant_IC_Number INTEGER, 
             name TEXT, 
             date TEXT, 
             clock_in_time TEXT, 
@@ -1025,7 +1108,7 @@ def Database():
             Clock_In_latitude REAL,
             Clock_Out_longitude REAL,
             Clock_Out_latitude REAL,
-            FOREIGN KEY (Tenant_id) REFERENCES Tenant (Tenant_id))''')
+            FOREIGN KEY (Tenant_IC_Number) REFERENCES Tenant (Tenant_IC_Number))''')
     conn.commit()
 
 
@@ -1115,11 +1198,11 @@ def TakeImages():
     if not check_haarcascadefile():
         return
 
-    Tenant_id = (txt.get())
+    Tenant_IC_Number = (txt.get())
     name = (txt2.get())
 
     # Validate inputs
-    if not Tenant_id or not name:
+    if not Tenant_IC_Number or not name:
         messagebox.showwarning("Warning", "Please enter both Tenant ID and Name!")
         return
 
@@ -1129,9 +1212,9 @@ def TakeImages():
 
     try:
         # Check if Tenant_id already exists
-        cursor.execute("SELECT Tenant_id FROM FaceEmbeddings WHERE Tenant_id=?", (Tenant_id,))
+        cursor.execute("SELECT Tenant_IC_Number FROM FaceEmbeddings WHERE Tenant_IC_Number=?", (Tenant_IC_Number,))
         if cursor.fetchone() is not None:
-            messagebox.showwarning("Warning", "Tenant ID already exists!")
+            messagebox.showwarning("Warning", "Tenant_IC_Number already exists!")
             return
 
         cam = cv2.VideoCapture(0)
@@ -1173,7 +1256,7 @@ def TakeImages():
 
                 try:
                     # Generate embedding
-                    temp_path = f"temp_face_{Tenant_id}.jpg"
+                    temp_path = f"temp_face_{Tenant_IC_Number}.jpg"
                     cv2.imwrite(temp_path, face_img)
 
                     # Generate embedding using DeepFace
@@ -1186,15 +1269,15 @@ def TakeImages():
                     if not os.path.exists(face_image_dir):
                         os.makedirs(face_image_dir)
 
-                    face_image_path = os.path.join(face_image_dir, f"face_{Tenant_id}.jpg")
+                    face_image_path = os.path.join(face_image_dir, f"face_{Tenant_IC_Number}.jpg")
                     cv2.imwrite(face_image_path, face_img)
 
                     # Store in database with image path
                     embedding_bytes = pickle.dumps(embedding[0]["embedding"])
                     cursor.execute("""INSERT INTO FaceEmbeddings 
-                                (Tenant_id, name, embedding, faceImagePath) 
+                                (Tenant_IC_Number, name, embedding, faceImagePath) 
                                 VALUES (?, ?, ?, ?)""",
-                                   (Tenant_id, name, embedding_bytes, face_image_path))
+                                   (Tenant_IC_Number, name, embedding_bytes, face_image_path))
                     conn.commit()
 
                     # Clean up temporary file
@@ -1213,8 +1296,8 @@ def TakeImages():
                     cam.release()
 
                     # Show success message
-                    messagebox.showinfo("Success", f"Face registered for {name} (Tenant ID: {Tenant_id}")
-                    message1.configure(text=f"Face registered for Tenant ID: {Tenant_id}")
+                    messagebox.showinfo("Success", f"Face registered for {name} (Tenant_IC_Number: {Tenant_IC_Number}")
+                    message1.configure(text=f"Face registered for Tenant_IC_Number: {Tenant_IC_Number}")
                     break
 
                 except Exception as e:
@@ -1281,11 +1364,11 @@ def TrackImages():
             embedding = DeepFace.represent(im, model_name='Facenet', enforce_detection=False)[0]["embedding"]
 
             # 从数据库获取已保存的嵌入
-            cursor.execute("SELECT Tenant_id, name, embedding FROM FaceEmbeddings")
+            cursor.execute("SELECT Tenant_IC_Number, name, embedding FROM FaceEmbeddings")
             records = cursor.fetchall()
 
             for record in records:
-                saved_tenant_id, name, saved_embedding = record
+                saved_Tenant_IC_Number, name, saved_embedding = record
                 similarity = (1 - distance) * 100
                 if similarity >= 80:  # Only recognize if similarity is 80% or higher
                     ts = time.time()
@@ -1295,14 +1378,14 @@ def TrackImages():
                     # 更新数据库考勤记录
                     if attendance_action == "Clock In":
                         cursor.execute("""INSERT INTO Attendance 
-                                    (Tenant_id, name, date, clock_in_time) 
+                                    (Tenant_IC_Number, name, date, clock_in_time) 
                                     VALUES (?, ?, ?, ?)""",
-                                       (saved_tenant_id, name, current_date, current_time))
+                                       (saved_Tenant_IC_Number, name, current_date, current_time))
                     else:
                         cursor.execute("""UPDATE Attendance 
                                     SET clock_out_time = ? 
-                                    WHERE Tenant_id = ? AND date = ?""",
-                                       (current_time, saved_tenant_id, current_date))
+                                    WHERE Tenant_IC_Number = ? AND date = ?""",
+                                       (current_time, saved_Tenant_IC_Number, current_date))
 
                     conn.commit()
                     recognized = True
@@ -1342,7 +1425,7 @@ def display_attendance():
         if not conn or not cursor:
             Database()
 
-        cursor.execute("""SELECT Tenant_id, name, date, clock_in_time, clock_out_time 
+        cursor.execute("""SELECT Tenant_IC_Number, name, date, clock_in_time, clock_out_time 
                      FROM Attendance""")
         rows = cursor.fetchall()
         for row in rows:
@@ -1365,13 +1448,13 @@ def clock_in():
     attendance_action = "Clock In"
 
     # Ask for Tenant ID
-    id_number = tsd.askstring('ID Verification', 'Please enter your Tenant ID:')
-    if not id_number:
+    ic_number = tsd.askstring('IC Verification', 'Please enter your Tenant IC Number:')
+    if not ic_number:
         return
 
     try:
         # Check if Tenant ID exists in database
-        cursor.execute("SELECT name, faceImagePath FROM FaceEmbeddings WHERE Tenant_id=?", (id_number,))
+        cursor.execute("SELECT name, faceImagePath FROM FaceEmbeddings WHERE Tenant_IC_Number=?", (ic_number,))
         result = cursor.fetchone()
         if not result:
             messagebox.showerror("Error", "Tenant ID not found in database!")
@@ -1426,9 +1509,9 @@ def clock_in():
                         current_date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
 
                         cursor.execute("""INSERT INTO Attendance 
-                                    (Tenant_id, name, date, clock_in_time) 
+                                    (Tenant_IC_Number, name, date, clock_in_time) 
                                     VALUES (?, ?, ?, ?)""",
-                                       (id_number, name, current_date, current_time))
+                                       (ic_number, name, current_date, current_time))
                         conn.commit()
 
                         # Close camera window
@@ -1476,16 +1559,16 @@ def clock_out():
     attendance_action = "Clock Out"
 
     # Ask for Tenant ID
-    id_number = tsd.askstring('ID Verification', 'Please enter your Tenant ID:')
-    if not id_number:
+    ic_number = tsd.askstring('IC Verification', 'Please enter your Tenant IC Number:')
+    if not ic_number:
         return
 
     try:
         # Check if Tenant ID exists in database
-        cursor.execute("SELECT name, faceImagePath FROM FaceEmbeddings WHERE Tenant_id=?", (id_number,))
+        cursor.execute("SELECT name, faceImagePath FROM FaceEmbeddings WHERE Tenant_IC_Number=?", (ic_number,))
         result = cursor.fetchone()
         if not result:
-            messagebox.showerror("Error", "Tenant ID not found in database!")
+            messagebox.showerror("Error", "Tenant IC Number not found in database!")
             return
 
         name, stored_image_path = result
@@ -1493,8 +1576,8 @@ def clock_out():
         # Check if already clocked in today
         current_date = datetime.datetime.now().strftime('%d-%m-%Y')
         cursor.execute("""SELECT clock_in_time FROM Attendance 
-                    WHERE Tenant_id=? AND date=? AND clock_out_time IS NULL""",
-                       (id_number, current_date))
+                    WHERE Tenant_IC_Number=? AND date=? AND clock_out_time IS NULL""",
+                       (ic_number, current_date))
         if not cursor.fetchone():
             messagebox.showerror("Error", "No clock-in record found for today!")
             return
@@ -1546,8 +1629,8 @@ def clock_out():
 
                         cursor.execute("""UPDATE Attendance 
                                     SET clock_out_time = ? 
-                                    WHERE Tenant_id = ? AND date = ? AND clock_out_time IS NULL""",
-                                       (current_time, id_number, current_date))
+                                    WHERE Tenant_IC_Number = ? AND date = ? AND clock_out_time IS NULL""",
+                                       (current_time, ic_number, current_date))
                         conn.commit()
 
                         # Close camera window
@@ -2183,7 +2266,7 @@ def complete_registration():
             conn.close()
 
 
-video_file = r"C:\Users\Vennis\Downloads\GovermentStallRentalSystem-ezgif.com-video-to-gif-converter.gif"
+video_file = r"C:/Kai Shuang/Goverment Stall Rental System.mp4"
 video_app = VideoApp(root, video_file)
 
 # Setup database

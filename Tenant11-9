@@ -1634,39 +1634,39 @@ def attendance():
     attendance_window.geometry("1920x1080")
     attendance_window.resizable(True, False)
     attendance_window.title("Attendance System")
-    attendance_window.configure(background='#2d420a')
+    attendance_window.configure(background='alice blue')
     attendance_window.state("zoomed")
 
     # ... rest of your attendance window code ...
 
     # Add button to switch to registration
-    frame1 = tk.Frame(attendance_window, bg="#c79cff")
+    frame1 = tk.Frame(attendance_window, bg="LightSkyBlue3")
     frame1.place(relx=0.11, rely=0.17, relwidth=0.75, relheight=0.80)
 
-    message3 = tk.Label(attendance_window, text="Face Recognition Based Attendance Monitoring System", fg="white",
-                        bg="#2d420a",
+    message3 = tk.Label(attendance_window, text="Face Recognition Based Attendance Monitoring System", fg="black",
+                        bg="alice blue",
                         width=55, height=1, font=('comic', 29, ' bold '))
     message3.place(x=80, y=10)
 
-    frame3 = tk.Frame(attendance_window, bg="#c4c6ce")
+    frame3 = tk.Frame(attendance_window, bg="LightSkyBlue3")
     frame3.place(relx=0.52, rely=0.09, relwidth=0.09, relheight=0.07)
 
     frame4 = tk.Frame(attendance_window, bg="")
     frame4.place(relx=0.36, rely=0.09, relwidth=0.16, relheight=0.07)
 
-    datef = tk.Label(frame4, text=day + "-" + mont[month] + "-" + year + "  |  ", fg="#ff61e5", bg="#2d420a", width=55,
+    datef = tk.Label(frame4, text=day + "-" + mont[month] + "-" + year + "  |  ", fg="grey", bg="alice blue", width=55,
                      height=1, font=('comic', 22, ' bold '))
     datef.pack(fill='both', expand=1)
 
-    clock = tk.Label(frame3, fg="#ff61e5", bg="#2d420a", width=55, height=1, font=('comic', 22, ' bold '))
+    clock = tk.Label(frame3, fg="grey", bg="alice blue", width=55, height=1, font=('comic', 22, ' bold '))
     clock.pack(fill='both', expand=1)
     tick()
 
     head1 = tk.Label(frame1, text="            For Already Registered                       ", fg="black",
-                     bg="#00fcca", width=90, font=('comic', 17, ' bold '))
+                     bg="SkyBlue4", width=90, font=('comic', 17, ' bold '))
     head1.place(x=0, y=0)
 
-    lbl3 = tk.Label(frame1, text="Attendance", width=20, fg="black", bg="#c79cff", height=1,
+    lbl3 = tk.Label(frame1, text="Attendance", width=20, fg="black", bg="LightSkyBlue3", height=1,
                     font=('comic', 17, ' bold '))
     lbl3.place(x=440, y=115)
 
@@ -1693,15 +1693,17 @@ def attendance():
 
     ###################### BUTTONS ##################################
 
-    clock_in_button = tk.Button(frame1, text="Clock In", command=clock_in, fg="black", bg="#3ffc00", width=35, height=1,
+    clock_in_button = tk.Button(frame1, text="Clock In", command=clock_in, fg="white", bg="MediumPurple4", width=35,
+                                height=1,
                                 activebackground="white", font=('comic', 15, 'bold'))
     clock_in_button.place(x=100, y=50)
-    clock_out_button = tk.Button(frame1, text="Clock Out", command=clock_out, fg="black", bg="#3ffc00", width=35,
+    clock_out_button = tk.Button(frame1, text="Clock Out", command=clock_out, fg="white", bg="MediumPurple4", width=35,
                                  height=1,
                                  activebackground="white", font=('comic', 15, 'bold'))
     clock_out_button.place(x=650, y=50)
 
-    quit_button = tk.Button(frame1, text="Quit", command=attendance_window.destroy, fg="black", bg="#eb4600", width=35,
+    quit_button = tk.Button(frame1, text="Quit", command=attendance_window.destroy, fg="white", bg="MediumPurple4",
+                            width=35,
                             height=1,
                             activebackground="white", font=('comic', 15, 'bold'))
     quit_button.place(x=390, y=450)
@@ -1735,54 +1737,56 @@ def face_scan_register():
     face_scan_register_window.geometry("1920x1080")
     face_scan_register_window.resizable(True, False)
     face_scan_register_window.title("Face Registration")
-    face_scan_register_window.configure(background='#2d420a')
+    face_scan_register_window.configure(background='alice blue')
     face_scan_register_window.state("zoomed")
 
     # ... rest of your registration window code ...
-    frame2 = tk.Frame(face_scan_register_window, bg="#c79cff")
+    frame2 = tk.Frame(face_scan_register_window, bg="LightSkyBlue3")
     frame2.place(relx=0.11, rely=0.17, relwidth=0.75, relheight=0.80)
 
-    frame3 = tk.Frame(face_scan_register_window, bg="#c4c6ce")
+    frame3 = tk.Frame(face_scan_register_window, bg="LightSkyBlue3")
     frame3.place(relx=0.52, rely=0.09, relwidth=0.25, relheight=0.07)
 
     frame4 = tk.Frame(face_scan_register_window, bg="")
     frame4.place(relx=0.36, rely=0.09, relwidth=0.25, relheight=0.07)
 
     message3 = tk.Label(face_scan_register_window, text="Face Recognition Based Attendance Monitoring System",
-                        fg="white", bg="#2d420a",
+                        fg="black", bg="alice blue",
                         width=55, height=1, font=('comic', 29, ' bold '))
     message3.place(x=80, y=10)
 
-    datef = tk.Label(frame4, text=day + "-" + mont[month] + "-" + year + "  |  ", fg="#ff61e5", bg="#2d420a", width=60,
+    datef = tk.Label(frame4, text=day + "-" + mont[month] + "-" + year + "  |  ", fg="grey", bg="alice blue", width=60,
                      height=1, font=('comic', 22, ' bold '))
     datef.pack(fill='both', expand=1)
 
-    clock = tk.Label(frame3, fg="#ff61e5", bg="#2d420a", width=55, height=1, font=('comic', 22, ' bold '))
+    clock = tk.Label(frame3, fg="grey", bg="alice blue", width=55, height=1, font=('comic', 22, ' bold '))
     clock.pack(fill='both', expand=1)
     tick()
 
     head2 = tk.Label(frame2, text="              For New Registrations                       ", fg="black",
-                     bg="#00fcca", width=90, font=('comic', 17, ' bold '))
+                     bg="SkyBlue4", width=90, font=('comic', 17, ' bold '))
     head2.place(x=0, y=0)
 
-    lbl = tk.Label(frame2, text="Enter Tenant ID", width=20, height=1, fg="black", bg="#c79cff",
+    lbl = tk.Label(frame2, text="Enter Tenant ID", width=20, height=1, fg="black", bg="LightSkyBlue3",
                    font=('comic', 17, ' bold '))
     lbl.place(x=460, y=55)
 
     txt = tk.Entry(frame2, width=32, fg="black", font=('comic', 15, ' bold '))
     txt.place(x=430, y=88)
 
-    lbl2 = tk.Label(frame2, text="Enter Name", width=20, fg="black", bg="#c79cff", font=('comic', 17, ' bold '))
+    lbl2 = tk.Label(frame2, text="Enter Name", width=20, fg="black", bg="LightSkyBlue3", font=('comic', 17, ' bold '))
     lbl2.place(x=460, y=140)
 
     txt2 = tk.Entry(frame2, width=32, fg="black", font=('comic', 15, ' bold '))
     txt2.place(x=430, y=173)
 
-    message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile", bg="#c79cff", fg="black", width=39, height=1,
-                        activebackground="#3ffc00", font=('comic', 15, ' bold '))
+    message1 = tk.Label(frame2, text="1)Take Images  >>>  2)Save Profile", bg="LightSkyBlue3", fg="black", width=39,
+                        height=1,
+                        activebackground="LightSkyBlue3", font=('comic', 15, ' bold '))
     message1.place(x=390, y=230)
 
-    message = tk.Label(frame2, text="", bg="#c79cff", fg="black", width=39, height=1, activebackground="#3ffc00",
+    message = tk.Label(frame2, text="", bg="LightSkyBlue3", fg="black", width=39, height=1,
+                       activebackground="LightSkyBlue3",
                        font=('comic', 16, ' bold '))
     message.place(x=375, y=495)
 
@@ -1807,13 +1811,14 @@ def face_scan_register():
     menubar.add_cascade(label='Help', font=('comic', 29, ' bold '), menu=filemenu)
     face_scan_register_window.config(menu=menubar)  # Add this line
 
-    clearButton = tk.Button(frame2, text="Clear", command=clear, fg="black", bg="#ff7221", width=11,
+    clearButton = tk.Button(frame2, text="Clear", command=clear, fg="white", bg="MediumPurple4", width=11,
                             activebackground="white", font=('comic', 11, ' bold '))
     clearButton.place(x=700, y=86)
-    clearButton2 = tk.Button(frame2, text="Clear", command=clear2, fg="black", bg="#ff7221", width=11,
+    clearButton2 = tk.Button(frame2, text="Clear", command=clear2, fg="white", bg="MediumPurple4", width=11,
                              activebackground="white", font=('comic', 11, ' bold '))
     clearButton2.place(x=700, y=172)
-    takeImg = tk.Button(frame2, text="Take Images", command=TakeImages, fg="white", bg="#6d00fc", width=34, height=1,
+    takeImg = tk.Button(frame2, text="Take Images", command=TakeImages, fg="white", bg="MediumPurple4", width=34,
+                        height=1,
                         activebackground="white", font=('comic', 15, ' bold '))
     takeImg.place(x=410, y=300)
 
@@ -1890,9 +1895,9 @@ def show_verification_frame():
 
     frame = Frame(root, padx=20, pady=50)
     frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-    frame.config(bg='lightsteelblue')
+    frame.config(bg='#FFCC80')
 
-    Label(frame, text="Enter Verification Code", bg='lightsteelblue').grid(row=0, column=0, pady=10)
+    Label(frame, text="Enter Verification Code", bg='#FFCC80').grid(row=0, column=0, pady=10)
     verification_code_var = StringVar()
     Entry(frame, textvariable=verification_code_var).grid(row=0, column=1, pady=10)
 
@@ -2011,49 +2016,49 @@ def show_register_frame():
 
     frame = Frame(root, padx=20, pady=50)
     frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)  # 居中显示
-    frame.config(bg='lightsteelblue')
+    frame.config(bg='#FFCC80')
 
     # 更新界面标题
-    Label(frame, text="Tenant Information", font=('Impact', 20), fg='black').grid(row=0, column=0, columnspan=2,
+    Label(frame, text="Tenant Information", font=('Impact', 20), fg='black',bg='#FFCC80').grid(row=0, column=1, columnspan=1,
                                                                                   pady=20)
 
-    Label(frame, text="Update Your Information And Change Your Password", font=('Impact', 20), fg='red').grid(row=1,
-                                                                                                              column=0,
-                                                                                                              columnspan=2,
+    Label(frame, text="Update Your Information And Change Your Password", font=('Constantia', 10), fg='red',bg='#FFCC80').grid(row=1,
+                                                                                                              column=1,
+                                                                                                              columnspan=1,
                                                                                                               pady=20)
 
     # 用户名
-    Label(frame, text="Username", bg='lightsteelblue').grid(row=2, column=0, pady=10)
+    Label(frame, text="Username", bg='#FFCC80').grid(row=2, column=0, pady=10)
     Entry(frame, textvariable=USERNAME_REGISTER).grid(row=2, column=1, pady=10)
 
     # IC Number (从登录时读取，不允许修改)
-    Label(frame, text="IC Number", bg='lightsteelblue').grid(row=3, column=0)
+    Label(frame, text="IC Number", bg='#FFCC80').grid(row=3, column=0)
     ic_entry = Entry(frame, textvariable=IC_NUMBER_REGISTER, state='disabled')  # 禁用输入框
     ic_entry.grid(row=3, column=1)
     IC_NUMBER_REGISTER.set(login_profile['IC_Number'])  # 从登录信息读取IC Number
 
     # 性别
-    Label(frame, text="Gender", bg='lightsteelblue').grid(row=4, column=0)
-    Radiobutton(frame, text="Male", variable=GENDER, value="Male", bg='lightsteelblue').grid(row=4, column=1)
-    Radiobutton(frame, text="Female", variable=GENDER, value="Female", bg='lightsteelblue').grid(row=4, column=2)
+    Label(frame, text="Gender", bg='#FFCC80').grid(row=4, column=0)
+    Radiobutton(frame, text="Male", variable=GENDER, value="Male", bg='#FFCC80').grid(row=4, column=1)
+    Radiobutton(frame, text="Female", variable=GENDER, value="Female", bg='#FFCC80').grid(row=4, column=2)
 
     # 电话号码
-    Label(frame, text="Phone Number", bg='lightsteelblue').grid(row=5, column=0)
+    Label(frame, text="Phone Number", bg='#FFCC80').grid(row=5, column=0)
     Entry(frame, textvariable=PHONE_NUMBER).grid(row=5, column=1)
 
     # 邮箱地址
-    Label(frame, text="Email Address", bg='lightsteelblue').grid(row=6, column=0)
+    Label(frame, text="Email Address", bg='#FFCC80').grid(row=6, column=0)
     Entry(frame, textvariable=EMAIL_ADDRESS).grid(row=6, column=1)
 
     # 密码
-    Label(frame, text="Password", bg='lightsteelblue').grid(row=7, column=0)
+    Label(frame, text="Password", bg='#FFCC80').grid(row=7, column=0)
     Entry(frame, textvariable=PASSWORD_REGISTER, show='*').grid(row=7, column=1)
 
     # 确认密码
-    Label(frame, text="Confirm Password", bg='lightsteelblue').grid(row=8, column=0)
+    Label(frame, text="Confirm Password", bg='#FFCC80').grid(row=8, column=0)
     Entry(frame, textvariable=CONFIRM_PASSWORD, show='*').grid(row=8, column=1)
 
-    Button(frame, text="Face Scan", command=face_scan_register, bg='red', fg='white').grid(row=10, column=1, pady=10)
+    Button(frame, text="Face Scan", command=face_scan_register, bg='yellow', fg='black').grid(row=10, column=1, pady=10)
 
     Button(frame, text="Save", command=save_update, bg='red', fg='white').grid(row=11, column=1, pady=10)
 

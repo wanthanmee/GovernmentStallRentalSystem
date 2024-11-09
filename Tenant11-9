@@ -2266,7 +2266,7 @@ def complete_registration():
             conn.close()
 
 
-video_file = r"C:/Kai Shuang/Goverment Stall Rental System.mp4"
+video_file = r"C:\Users\Vennis\Downloads\GovermentStallRentalSystem-ezgif.com-video-to-gif-converter.gif"
 video_app = VideoApp(root, video_file)
 
 # Setup database

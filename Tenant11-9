@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import StringVar, Frame, Label, Entry, Button, Radiobutton, filedialog
+from tkinter import StringVar, Frame, Label, Entry, Button, Radiobutton, filedialog,scrolledtext
 import sqlite3
 import tkinter.messagebox as messagebox
 from tkinter import messagebox as mess
@@ -104,6 +104,7 @@ class RentalSystemApp:
         if not self.cap.isOpened():
             print("Error: Cannot open video file.")
             return
+        
 
         # Load images
         self.profile_image_original = Image.open(r"C:\Users\Vennis\Downloads\KaiShuang\Logo_Profile.png")
@@ -175,26 +176,200 @@ class RentalSystemApp:
                                         command=self.on_show_notification)
         notification_button.grid(row=0, column=2, padx=20, pady=10)
 
+        feedback_button = tk.Button(self.inner_frame, text="Feedback",
+                                        font=("Tw Cen MT Condensed Extra Bold", 15), bg="#FD5602", fg="khaki1",
+                                        width=15, bd=5,
+                                        command=self.on_feedback_click)
+        feedback_button.grid(row=0, column=3, padx=20, pady=10)
+
         payment_button = tk.Button(self.inner_frame, text="Payment", font=("Tw Cen MT Condensed Extra Bold", 15),
                                    bg="#FD5602", fg="khaki1", width=12, bd=5,
                                    command=self.on_payment_click)
-        payment_button.grid(row=0, column=3, padx=20, pady=10)
+        payment_button.grid(row=0, column=4, padx=20, pady=10)
 
         payment_his_button = tk.Button(self.inner_frame, text=" Payment History  \n  Receipt ",
                                        font=("Tw Cen MT Condensed Extra Bold", 15), bg="#FD5602", fg="khaki1", width=15,
                                        bd=5,
                                        command=self.on_show_payment_history)
-        payment_his_button.grid(row=0, column=4, padx=20, pady=10)
+        payment_his_button.grid(row=0, column=5, padx=20, pady=10)
 
         logout_button = tk.Button(self.inner_frame, text="Back To \n Home Screen",
                                   font=("Tw Cen MT Condensed Extra Bold", 15), bg="#FD5602", fg="khaki1", width=15,
                                   bd=5, command=self.log_out)
-        logout_button.grid(row=0, column=5, padx=20, pady=10)
+        logout_button.grid(row=0, column=6, padx=20, pady=10)
 
     def log_out(self):
         self.root.destroy()  # 关闭当前窗口
         root.deiconify()  # 恢复主窗口显示
         show_login_frame()  # 显示登录页面
+
+    def on_feedback_click(self):
+        self.buttons_frame.pack_forget()
+        self.video_frame.pack_forget()
+        self.create_feedback_screen()
+
+    # Creating feedback screen
+    def create_feedback_screen(self):
+
+        if hasattr(self, 'history_frame'):
+            self.history_frame.pack_forget()
+        if hasattr(self, 'central_feedback_frame'):
+            self.central_feedback_frame.pack_forget()
+
+        self.central_feedback_frame = tk.Frame(self.root, bg="white", padx=20, pady=20)
+        self.central_feedback_frame.pack(expand=True)
+
+        # Title Label
+        title_label = tk.Label(self.central_feedback_frame, text="FEEDBACK", font=("Arial", 24, "bold"), bg="white")
+        title_label.pack(pady=10)
+
+        # Tab buttons
+        tab_frame = tk.Frame(self.central_feedback_frame, bg="white")
+        tab_frame.pack(pady=10)
+
+        feedback_tab = tk.Button(tab_frame, text="Feedback", font=("Arial", 12), bg="#FFB05D",
+                                 command=self.show_feedback_tab)
+        feedback_tab.grid(row=0, column=0, padx=10)
+
+        history_tab = tk.Button(tab_frame, text="View Response", font=("Arial", 12), bg="#FFB05D",
+                                command=self.show_history_tab)
+        history_tab.grid(row=0, column=1, padx=10)
+
+        # Feedback input area
+        self.feedback_text = scrolledtext.ScrolledText(self.central_feedback_frame, width=50, height=10, wrap=tk.WORD,
+                                                       font=("Arial", 12))
+        self.feedback_text.pack(pady=10)
+
+        # Instruction label
+        instruction_label = tk.Label(self.central_feedback_frame, text="Not more than 500 words", font=("Arial", 10), bg="white",
+                                     fg="grey")
+        instruction_label.pack()
+
+        # Submit button
+        submit_button = tk.Button(self.central_feedback_frame, text="Submit My Feedback", font=("Arial", 12), bg="#FFB05D",
+                                  command=self.submit_feedback)
+        submit_button.pack(pady=20)
+
+        # Back button
+        back_button = tk.Button(self.central_feedback_frame, text="Back", font=("Arial", 12), bg="orange", command=self.go_back)
+        back_button.pack()
+
+    def submit_feedback(self):
+        feedback_text = self.feedback_text.get("1.0", tk.END).strip()
+        if len(feedback_text) > 500:
+            messagebox.showerror("Error", "Feedback should not exceed 500 words.")
+            return
+        if not feedback_text:
+            messagebox.showerror("Error", "Please enter your feedback before submitting.")
+            return
+
+        try:
+            conn = sqlite3.connect("govRental.db")
+            cursor = conn.cursor()
+
+            # Assuming Tenant_ID and Admin_ID are fetched or hardcoded here for demonstration
+            tenant_id = 1  # Placeholder
+            admin_id = 1  # Placeholder
+            feedback_date = datetime.now().date()
+
+            cursor.execute(
+                "INSERT INTO Feedback_Manage (Tenant_ID, Admin_ID, Feedback, Response, Feedback_Date, Response_Date) VALUES (?, ?, ?, ?, ?, ?)",
+                (tenant_id, admin_id, feedback_text, "", feedback_date, None)
+            )
+            conn.commit()
+            messagebox.showinfo("Feedback", "Feedback submitted successfully.")
+            self.feedback_text.delete("1.0", tk.END)  # Clear text after submission
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", str(e))
+        finally:
+            if conn:
+                conn.close()
+
+    def show_feedback_tab(self):
+        self.feedback_text.delete("1.0", tk.END)  # Clear text for new feedback
+        self.history_frame.pack
+        self.create_feedback_screen()
+
+
+    def show_history_tab(self):
+        self.central_feedback_frame.pack
+        self.create_history_screen()
+
+    def create_history_screen(self):
+        # Remove any existing frames for history or feedback
+        if hasattr(self, 'central_feedback_frame'):
+            self.central_feedback_frame.pack_forget()
+        if hasattr(self, 'history_frame'):
+            self.history_frame.pack_forget()
+
+        # Creating the history frame
+        self.history_frame = tk.Frame(self.root, bg="white", padx=20, pady=20)
+        self.history_frame.pack(expand=True)
+
+        # Title
+        title_label = tk.Label(self.history_frame, text="FEEDBACK HISTORY", font=("Arial", 24, "bold"), bg="white")
+        title_label.pack(pady=10)
+
+        # Tab buttons
+        tab_frame = tk.Frame(self.history_frame, bg="white")
+        tab_frame.pack(pady=10)
+
+        feedback_tab = tk.Button(tab_frame, text="Feedback", font=("Arial", 12), bg="#FFB05D",
+                                 command=self.show_feedback_tab)
+        feedback_tab.grid(row=0, column=0, padx=10)
+
+        history_tab = tk.Button(tab_frame, text="View Response", font=("Arial", 12), bg="#FFB05D",
+                                command=self.show_history_tab)
+        history_tab.grid(row=0, column=1, padx=10)
+
+        # Submit Date label and entry box
+        date_frame = tk.Frame(self.history_frame, bg="white")
+        date_frame.pack(pady=5)
+
+        submit_date_label = tk.Label(date_frame, text="Submit Date", font=("Arial", 12), bg="#FFB05D", fg="black")
+        submit_date_label.pack(side=tk.LEFT, padx=5)
+
+        submit_date_entry = tk.Entry(date_frame, font=("Arial", 12), width=20)
+        submit_date_entry.pack(side=tk.LEFT, padx=5)
+
+        # History display box
+        history_display = scrolledtext.ScrolledText(self.history_frame, width=60, height=20, wrap=tk.WORD,
+                                                    font=("Arial", 10))
+        history_display.pack(pady=10)
+
+        # Database retrieval and display of feedback history
+        try:
+            conn = sqlite3.connect("govRental.db")
+            cursor = conn.cursor()
+            tenant_id = 1  # Placeholder for the tenant currently logged in
+
+            cursor.execute(
+                "SELECT Feedback, Response, Feedback_Date, Response_Date FROM Feedback_Manage WHERE Tenant_ID = ?",
+                (tenant_id,)
+            )
+            feedback_entries = cursor.fetchall()
+
+            for entry in feedback_entries:
+                feedback_text = f"Feedback: {entry[0]}\nResponse: {entry[1]}\nDate: {entry[2]}\nResponse Date: {entry[3]}\n\n"
+                history_display.insert(tk.END, feedback_text)
+
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", str(e))
+        finally:
+            if conn:
+                conn.close()
+
+        # Back button at the bottom
+        back_button = tk.Button(self.history_frame, text="Back", font=("Arial", 12), bg="orange", command=self.go_back)
+        back_button.pack(pady=10)
+
+    def go_back(self):
+        self.central_feedback_frame.pack_forget()
+        self.history_frame.pack_forget()
+        self.buttons_frame.pack(fill=tk.X)
+        self.video_frame.pack(fill=tk.BOTH, expand=True)
+
 
     def on_show_notification(self):
         self.buttons_frame.pack_forget()
@@ -393,7 +568,9 @@ class RentalSystemApp:
         self.buttons_frame.pack(fill=tk.X)
         self.video_frame.pack(fill=tk.BOTH, expand=True)
 
-    def create_stall_frame(self):
+    def create_stall_frame(self, Stall_ID):
+        # Create StringVar instances
+        address_image_var = StringVar()
         stall_address_var = StringVar()
         postcode_var = StringVar()
         rental_period_var = StringVar()
@@ -402,79 +579,102 @@ class RentalSystemApp:
         rental_amount_var = StringVar()
         deposit_amount_var = StringVar()
 
+        # Fetch stall information from the database using Stall_ID
+        try:
+            conn = sqlite3.connect("govRental.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT Address_Image, Stall_Address, Postcode, Rental_Period, Contract_Start_Date,
+                       Contract_End_Date, Rental_Amount, Deposit_Amount
+                FROM Stall
+                WHERE Stall_ID = ?
+            """, (Stall_ID,))
+            stall_info = cursor.fetchone()
+
+            if stall_info:
+                # Set the values to StringVars
+                address_image_var.set(stall_info[0])
+                stall_address_var.set(stall_info[1])
+                postcode_var.set(stall_info[2])
+                rental_period_var.set(stall_info[3])
+                contract_start_date_var.set(stall_info[4])
+                contract_end_date_var.set(stall_info[5])
+                rental_amount_var.set(stall_info[6])
+                deposit_amount_var.set(stall_info[7])
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Error fetching stall information: {str(e)}")
+        finally:
+            if 'conn' in locals():
+                conn.close()
+
+        # Create the main stall frame
         self.stall_frame = tk.Frame(self.root, bg="white", padx=20, pady=20)
         self.stall_frame.pack(expand=True)
 
+        # Top title and image section
         self.upload_stall_frame = tk.Frame(self.stall_frame, bg="white", padx=30, pady=30)
         self.upload_stall_frame.pack()
 
-        stall_Label = tk.Label(self.upload_stall_frame, text="My Stall", font=("Time New Roman", 20, "bold"),
+        stall_label = tk.Label(self.upload_stall_frame, text="My Stall", font=("Times New Roman", 30, "bold"),
                                bg="white")
-        stall_Label.grid(row=0, column=0, columnspan=2, pady=20)
+        stall_label.grid(row=0, column=1, columnspan=2, pady=20)
 
-        Stall_Address_label = tk.Label(self.upload_stall_frame, text="Stall_Address", bg='lightsteelblue')
-        Stall_Address_label.grid(row=1, column=0, pady=20)
+        # Load and resize the image
+        image = Image.open(address_image_var.get())
+        image = image.resize((300, 300), Image.Resampling.LANCZOS)
+        image_tk = ImageTk.PhotoImage(image)
 
-        Stall_Address_entry = Entry(self.upload_stall_frame, textvariable=stall_address_var, font=('Arial', 16),
-                                    highlightbackground="black", width=25,
-                                    highlightcolor="black", highlightthickness=2, state="readonly")
-        Stall_Address_entry.grid(row=1, column=1, padx=5, pady=20)
+        # Image label
+        address_image_label = tk.Label(self.upload_stall_frame, image=image_tk, bg="#C7D3FF")
+        address_image_label.image = image_tk
+        address_image_label.grid(row=1, column=0, rowspan=6, padx=10, pady=10)
 
-        postcode_label = tk.Label(self.upload_stall_frame, text="Postcode", bg='lightsteelblue')
-        postcode_label.grid(row=1, column=2, pady=20)
+        # Label and Entry fields in a grid layout
+        tk.Label(self.upload_stall_frame, text="Stall Address", bg="white").grid(row=1, column=1, sticky="e",
+                                                                                          padx=5, pady=5)
+        Entry(self.upload_stall_frame, textvariable=stall_address_var, font=('Arial', 16), state="readonly",
+              width=25).grid(row=1, column=2, padx=5, pady=5)
 
-        postcode_entry = Entry(self.upload_stall_frame, textvariable=postcode_var, font=('Arial', 16),
-                               highlightbackground="black", width=25,
-                               highlightcolor="black", highlightthickness=2, state="readonly")
-        postcode_entry.grid(row=1, column=3, padx=5, pady=20)
+        tk.Label(self.upload_stall_frame, text="Postcode", bg="white").grid(row=2, column=1, sticky="e",
+                                                                                     padx=5, pady=5)
+        Entry(self.upload_stall_frame, textvariable=postcode_var, font=('Arial', 16), state="readonly", width=25).grid(
+            row=2, column=2, padx=5, pady=5)
 
-        rental_period_label = tk.Label(self.upload_stall_frame, text="Rental Period", bg='lightsteelblue')
-        rental_period_label.grid(row=4, column=1, pady=20)
+        tk.Label(self.upload_stall_frame, text="Rental Amount", bg="white").grid(row=3, column=1, sticky="e",
+                                                                                          padx=5, pady=5)
+        Entry(self.upload_stall_frame, textvariable=rental_amount_var, font=('Arial', 16), state="readonly",
+              width=25).grid(row=3, column=2, padx=5, pady=5)
 
-        rental_period_entry = Entry(self.upload_stall_frame, textvariable=rental_period_var, font=('Arial', 16),
-                                    highlightbackground="black", width=10,
-                                    highlightcolor="black", highlightthickness=2, state="readonly")
-        rental_period_entry.grid(row=4, column=2, padx=5, pady=20)
+        tk.Label(self.upload_stall_frame, text="Deposit Amount", bg="white").grid(row=4, column=1, sticky="e",
+                                                                                           padx=5, pady=5)
+        Entry(self.upload_stall_frame, textvariable=deposit_amount_var, font=('Arial', 16), state="readonly",
+              width=25).grid(row=4, column=2, padx=5, pady=5)
 
-        contract_start_date_label = tk.Label(self.upload_stall_frame, text="Contract Start Date", bg='lightsteelblue')
-        contract_start_date_label.grid(row=3, column=0, pady=20)
+        tk.Label(self.upload_stall_frame, text="Contract Start Date", bg="white").grid(row=5, column=1,
+                                                                                                sticky="e", padx=5,
+                                                                                                pady=5)
+        Entry(self.upload_stall_frame, textvariable=contract_start_date_var, font=('Arial', 16), state="readonly",
+              width=25).grid(row=5, column=2, padx=5, pady=5)
 
-        contract_start_date_entry = Entry(self.upload_stall_frame, textvariable=contract_start_date_var,
-                                          font=('Arial', 16),
-                                          highlightbackground="black", width=25,
-                                          highlightcolor="black", highlightthickness=2, state="readonly")
-        contract_start_date_entry.grid(row=3, column=1, padx=5, pady=20)
+        tk.Label(self.upload_stall_frame, text="Contract End Date", bg="white").grid(row=6, column=1,
+                                                                                              sticky="e", padx=5,
+                                                                                              pady=5)
+        Entry(self.upload_stall_frame, textvariable=contract_end_date_var, font=('Arial', 16), state="readonly",
+              width=25).grid(row=6, column=2, padx=5, pady=5)
 
-        contract_end_date_label = tk.Label(self.upload_stall_frame, text="Contract End Date", bg='lightsteelblue')
-        contract_end_date_label.grid(row=3, column=2, pady=20)
+        tk.Label(self.upload_stall_frame, text="Rental Period", bg="white").grid(row=7, column=1, sticky="e",
+                                                                                          padx=5, pady=5)
+        Entry(self.upload_stall_frame, textvariable=rental_period_var, font=('Arial', 16), state="readonly",
+              width=10).grid(row=7, column=2, padx=5, pady=5)
 
-        contract_end_date_entry = Entry(self.upload_stall_frame, textvariable=contract_end_date_var, font=('Arial', 16),
-                                        highlightbackground="black", width=25,
-                                        highlightcolor="black", highlightthickness=2, state="readonly")
-        contract_end_date_entry.grid(row=3, column=3, padx=5, pady=20)
-
-        rental_amount_label = tk.Label(self.upload_stall_frame, text="Rental Amount", bg='lightsteelblue')
-        rental_amount_label.grid(row=2, column=0, pady=20)
-
-        rental_amount_entry = Entry(self.upload_stall_frame, textvariable=rental_amount_var, font=('Arial', 16),
-                                    highlightbackground="black", width=25,
-                                    highlightcolor="black", highlightthickness=2, state="readonly")
-        rental_amount_entry.grid(row=2, column=1, padx=5, pady=20)
-
-        deposit_amount_label = tk.Label(self.upload_stall_frame, text="Deposit Amount", bg='lightsteelblue')
-        deposit_amount_label.grid(row=2, column=2, pady=20)
-
-        deposit_amount_entry = Entry(self.upload_stall_frame, textvariable=deposit_amount_var, font=('Arial', 16),
-                                     highlightbackground="black", width=25,
-                                     highlightcolor="black", highlightthickness=2, state="readonly")
-        deposit_amount_entry.grid(row=2, column=3, padx=5, pady=20)
-
-        btn_view_contract = tk.Button(self.upload_stall_frame, text="View My Contract", font=("Arial", 12), width=20,
+        # Buttons
+        btn_view_contract = tk.Button(self.upload_stall_frame, text="View Contract", font=("Arial", 12),fg='black',bg='#FFCC80', width=20,
                                       command=self.change_password_window)
-        btn_view_contract.grid(row=5, column=2, padx=20, pady=10)
-        btn_view_contract = tk.Button(self.upload_stall_frame, text="Log Out", font=("Arial", 12), width=20,
-                                      command=self.stall_log_out)
-        btn_view_contract.grid(row=6, column=2, padx=20, pady=10)
+        btn_view_contract.grid(row=8, column=1, pady=10, columnspan=2)
+
+        btn_back = tk.Button(self.upload_stall_frame, text="Back", font=("Arial", 12), fg='black',bg='red',width=20,
+                             command=self.stall_log_out)
+        btn_back.grid(row=9, column=1, pady=10, columnspan=2)
 
     def stall_log_out(self):
         self.stall_frame.pack_forget()
@@ -500,6 +700,10 @@ class RentalSystemApp:
             self.upload_payment_frame.pack_forget()
         if hasattr(self, 'upload_stall_frame'):
             self.upload_stall_frame.pack_forget()
+        if hasattr(self, 'history_frame'):
+            self.history_frame.pack_forget()
+        if hasattr(self, 'central_feedback_frame'):
+            self.central_feedback_frame.pack_forget()
         if hasattr(self, 'profile_frame'):
             self.profile_frame.pack_forget()
 
@@ -671,30 +875,30 @@ class RentalSystemApp:
         # 创建一个新窗口
         change_password_window = tk.Toplevel()
         change_password_window.title("Change Password")
-        change_password_window.geometry("400x300")
-        change_password_window.config(bg='lightblue')
+        change_password_window.geometry("500x300")
+        change_password_window.config(bg='white')
 
         # 创建密码输入框
-        label_new_password = Label(change_password_window, text="New Password:", font=('Arial', 14), bg='lightblue')
+        label_new_password = Label(change_password_window, text="New Password:", font=('Arial', 14), bg='white')
         label_new_password.grid(row=0, column=0, padx=10, pady=10, sticky="e")
 
         entry_new_password = Entry(change_password_window, show='*', font=('Arial', 14))
         entry_new_password.grid(row=0, column=1, padx=10, pady=10, sticky="w")
 
         label_confirm_password = Label(change_password_window, text="Confirm Password:", font=('Arial', 14),
-                                       bg='lightblue')
+                                       bg='white')
         label_confirm_password.grid(row=1, column=0, padx=10, pady=10, sticky="e")
 
         entry_confirm_password = Entry(change_password_window, show='*', font=('Arial', 14))
         entry_confirm_password.grid(row=1, column=1, padx=10, pady=10, sticky="w")
 
         # 创建保存按钮
-        btn_save_password = Button(change_password_window, text="Save Password", font=('Arial', 14), bg='lightgreen',
+        btn_save_password = Button(change_password_window, text="Save Password", font=('Arial', 14), bg='#FFCC80',
                                    command=lambda: self.save_password(entry_new_password, entry_confirm_password,
                                                                       change_password_window))
         btn_save_password.grid(row=2, columnspan=2, pady=20)
 
-        btn_cancel = Button(change_password_window, text="Cancel", font=('Arial', 14), bg='lightcoral',
+        btn_cancel = Button(change_password_window, text="Cancel", font=('Arial', 14), bg='#FFCC80',
                             command=change_password_window.destroy)
         btn_cancel.grid(row=3, columnspan=2, pady=10)
 
@@ -941,10 +1145,35 @@ class RentalSystemApp:
     # 各个按钮的功能函数
 
     def on_my_stall_click(self):
-        self.buttons_frame.pack_forget()
-        self.video_frame.pack_forget()
-        self.create_stall_frame()
+        try:
+            # Get the tenant's IC number and password from login_profile
+            ic_number = login_profile['IC_Number']
+            password = login_profile['Password']
 
+            # Get the Tenant_ID
+            tenant_id = self.fetch_tenant_id(ic_number, password)
+
+            # Fetch Stall_ID for this tenant
+            conn = sqlite3.connect("govRental.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT Stall_ID FROM Stall WHERE Tenant_ID = ?", (tenant_id,))
+            result = cursor.fetchone()
+
+            if result:
+                Stall_ID = result[0]
+                # Hide current frames
+                self.buttons_frame.pack_forget()
+                self.video_frame.pack_forget()
+                # Create stall frame with the fetched Stall_ID
+                self.create_stall_frame(Stall_ID)
+            else:
+                messagebox.showerror("Error", "No stall assigned to this tenant.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch stall information: {str(e)}")
+        finally:
+            if 'conn' in locals():
+                conn.close()
 
     def fetch_tenant_id(self, ic_number, password):
         try:
@@ -1019,7 +1248,7 @@ def Database():
 
     cursor.execute(
         """CREATE TABLE IF NOT EXISTS Admin (
-            Admin_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Admin_ID INTEGER PRIMARY KEY NOT NULL, 
             Admin_Name TEXT NOT NULL, 
             Admin_IC_Number TEXT NOT NULL CHECK(LENGTH(Admin_IC_Number) = 12),  
             Admin_Gender TEXT NOT NULL, 
@@ -1033,22 +1262,39 @@ def Database():
     cursor.execute(
         """CREATE TABLE IF NOT EXISTS Stall (
             Stall_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Address_Image TEXT,
             Stall_Address TEXT NOT NULL,  
             Postcode INTEGER NOT NULL, 
             Status INTEGER DEFAULT 0,  
             Tenant_ID INTEGER NOT NULL,  
             Tenant_Username TEXT NOT NULL, 
             Rental_Period INTEGER NOT NULL,
-            Contract_Start_Date TEXT,
-            Contract_End_Date TEXT,
-            Rental_Amount REAL,
-            Deposit_Amount REAL,
-            Last_Payment_Date TEXT,
+            Contract_Start_Date DATE,
+            Contract_End_Date DATE,
+            Rental_Amount FLOAT,
+            Deposit_Amount FLOAT,
+            Last_Payment_Date DATE,
             Contract_Status TEXT,
+            id INTEGER,
             FOREIGN KEY (Tenant_ID) REFERENCES Tenant (Tenant_ID),
-            FOREIGN KEY (Tenant_Username) REFERENCES Tenant (Tenant_Username)  
+            FOREIGN KEY (id) REFERENCES markers (id)
         )"""
     )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS Feedback_Manage (
+            Feedback_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Tenant_ID INTEGER NOT NULL,
+            Admin_ID INTEGER NOT NULL,  
+            Feedback TEXT NOT NULL, 
+            Response TEXT NOT NULL, 
+            Feedback_Date DATE NOT NULL,
+            Response_Date DATE NOT NULL,
+            FOREIGN KEY (Tenant_ID) REFERENCES Tenant (Tenant_ID),
+            FOREIGN KEY (Admin_ID) REFERENCES Admin (Admin_ID)
+        )"""
+    )
+
 
     cursor.execute(
         """CREATE TABLE IF NOT EXISTS Payment_Manage (
@@ -1069,22 +1315,29 @@ def Database():
             Overdue_Amount TEXT NOT NULL,
             Total_Amount TEXT NOT NULL,
             FOREIGN KEY (Tenant_ID) REFERENCES Tenant (Tenant_ID),
-            FOREIGN KEY (Tenant_Username) REFERENCES Tenant (Tenant_Username),
-            FOREIGN KEY (Stall_ID) REFERENCES Stall (Stall_ID),
-            FOREIGN KEY (Rental_Amount) REFERENCES Stall (Rental_Amount),
-            FOREIGN KEY (Postcode) REFERENCES Stall (Postcode)
+            FOREIGN KEY (Stall_ID) REFERENCES Stall (Stall_ID)
         )"""
     )
 
     cursor.execute(
         """CREATE TABLE IF NOT EXISTS Business_Information (
-            Business_ID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            Business_ID INTEGER PRIMARY KEY NOT NULL, 
             Business_Name TEXT NOT NULL,
             Licence_No TEXT NOT NULL,
             Business_Hours TEXT NOT NULL, 
             Location TEXT NOT NULL, 
             Contact_No TEXT NOT NULL, 
             Email_Address TEXT NOT NULL
+        )"""
+    )
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS markers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+            lat TEXT NOT NULL,
+            lon TEXT NOT NULL,
+            text TEXT NOT NULL, 
+            icon_path TEXT NOT NULL
         )"""
     )
 

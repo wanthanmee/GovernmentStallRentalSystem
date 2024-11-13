@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Location with Map</title>
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 20px;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        #location {
+            font-size: 20px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Your Live Location with Map</h1>
+    <div id="location">Getting location...</div>
+    <div id="map"></div>
+
+    <!-- Leaflet.js JS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        var map, marker;
+
+        // 初始化地图
+        function initMap(latitude, longitude) {
+            map = L.map('map').setView([latitude, longitude], 13);
+
+            // 加载 OpenStreetMap 瓦片图
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // 添加标记
+            marker = L.marker([latitude, longitude]).addTo(map);
+        }
+
+        // 更新标记位置
+        function updateMap(latitude, longitude) {
+            map.setView([latitude, longitude], 13);
+            marker.setLatLng([latitude, longitude]);
+        }
+
+        // 检查浏览器是否支持 Geolocation API
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(showPosition, showError, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
+        } else {
+            document.getElementById("location").innerHTML = "Geolocation is not supported by this browser.";
+        }
+
+        // 成功获取位置时执行
+        function showPosition(position) {
+            var latitude = position.coords.latitude;
+            var longitude = position.coords.longitude;
+
+            // 显示经纬度
+            document.getElementById("location").innerHTML = "Latitude: " + latitude + "<br>Longitude: " + longitude;
+
+            // 如果地图未初始化，则初始化地图
+            if (!map) {
+                initMap(latitude, longitude);
+            } else {
+                // 更新地图上的位置
+                updateMap(latitude, longitude);
+            }
+        }
+
+        // 获取位置失败时执行
+        function showError(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    document.getElementById("location").innerHTML = "User denied the request for Geolocation.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    document.getElementById("location").innerHTML = "Location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    document.getElementById("location").innerHTML = "The request to get user location timed out.";
+                    break;
+                case error.UNKNOWN_ERROR:
+                    document.getElementById("location").innerHTML = "An unknown error occurred.";
+                    break;
+            }
+        }
+    </script>
+
+</body>
+</html>

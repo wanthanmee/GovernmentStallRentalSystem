@@ -1,0 +1,1539 @@
+def add_stall_and_assign_stall(tenant_and_stall):
+    global contract_start_date, contract_end_date
+    def fetch_tenant_username(event=None):
+        tenant_id = tenant_id_entry.get()
+        if not tenant_id:
+            return
+        conn = sqlite3.connect('govRental.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT Tenant_Username FROM Tenant WHERE Tenant_ID = ?", (tenant_id,))
+        result = cursor.fetchone()
+        conn.close()
+        if result:
+            tk.tenant_username_entry.configure(state='normal')
+            tk.tenant_username_entry.delete(0, END)
+            tk.tenant_username_entry.insert(0, result[0])
+            tk.tenant_username_entry.configure(state='readonly')
+        else:
+            tk.tenant_username_entry.configure(state='normal')
+            tk.tenant_username_entry.delete(0, END)
+            tk.tenant_username_entry.configure(state='readonly')
+    def add_stall():
+        stall_address = tk.address_entry.get("1.0", "end-1c")
+        postcode = postcode_entry.get()
+        rental_amount = tk.stall_rental_entry.get()
+        if not stall_address or not postcode or not rental_amount:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+        conn = sqlite3.connect('govRental.db')
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO Stall (Stall_Address, Postcode, Stall_Status, Rental_Amount) VALUES (?, ?, 0, ?)",
+            (stall_address, postcode, rental_amount))
+        stall_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        messagebox.showinfo("Success", f"Stall added successfully! Stall ID: {stall_id}")
+        tk.address_entry.delete("1.0", "end-1c")
+        postcode_entry.delete(0, END)
+        tk.stall_rental_entry.delete(0, END)
+    def search_stalls_by_postcode():
+        postcode = tk.search_postcode_entry.get()
+        if not postcode:
+            print(postcode)
+            messagebox.showerror("Error", "Please enter a postcode to search!")
+            return
+        conn = sqlite3.connect('govRental.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT Stall_ID, Stall_Address FROM Stall WHERE Postcode = ? AND Status = 0",
+                       (postcode,))
+        stalls = cursor.fetchall()
+        conn.close()
+        tk.stall_combobox['values'] = []
+        if stalls:
+            tk.stall_combobox['values'] = [f"ID: {stall[0]}, Address: {stall[1]}" for stall in stalls]
+            messagebox.showinfo("Updates", "Available stalls already shown in the dropbox.")
+        else:
+            messagebox.showinfo("No Results", "No available stalls found for the given postcode.")
+    from datetime import timedelta
+    from datetime import datetime, timedelta
+    from dateutil.relativedelta import relativedelta
+    def assign_stall():
+        selected_stall = tk.stall_combobox.get()
+        if not selected_stall:
+            messagebox.showerror("Error", "Please select a stall to assign.")
+            return
+        stall_id = selected_stall.split(",")[0].split(":")[1].strip()
+        stall_address = selected_stall.split(",")[1].split(":")[1].strip()
+        # Get all form values
+        tenant_id = tenant_id_entry.get()
+        tenant_username = tk.tenant_username_entry.get()
+        rental_period = tk.rental_period_combobox.get()
+        rental_amount = tk.rental_amount_entry.get()
+        deposit_amount = tk.deposit_entry.get()
+        # Convert date string to proper format (YY-MM-DD)
+        try:
+            payment_date = datetime.strptime(tk.last_payment_entry.get(), '%y-%m-%d')
+            last_payment_date = payment_date.strftime('%y-%m-%d')
+        except ValueError:
+            messagebox.showerror("Error", "Invalid date format. Please use YY-MM-DD format")
+            return
+        # Parse rental period correctly
+        rental_period = tk.rental_period_combobox.get()
+        if rental_period == "6 months":
+            rental_months = 6
+        elif rental_period == "1 year":
+            rental_months = 12
+        elif rental_period == "2 years":
+            rental_months = 24
+        else:
+            messagebox.showerror("Error", "Invalid rental period selected")
+            return
+        # Contract start and end dates
+        contract_start_date = tk.contract_start_entry.get_date()
+        # Calculate contract end date based on rental period
+        contract_end_date = contract_start_date + relativedelta(months=rental_months)
+        contract_end_date_str = contract_end_date.strftime('%Y-%m-%d')
+        tk.contract_end_entry.delete(0, 'end')  # Clear any previous value
+        tk.contract_end_entry.insert(0, contract_end_date_str)  # Insert the calculated end date
+        tk.contract_end_entry.configure(state='readonly')  # Set to read-only after insertion
+        # Reminder date
+        reminder_date = tk.reminder_entry.get_date().strftime('%Y-%m-%d')
+        tk.reminder_entry.delete(0, 'end')  # Clear any previous value
+        tk.reminder_entry.insert(0, reminder_date)  # Insert the reminder date
+        tk.reminder_entry.configure(state='readonly')  # Set to read-only after insertion
+        # Payment due date (example: set as the contract start date here)
+        payment_due_date_str = contract_start_date.strftime('%Y-%m-%d')
+        try:
+            tk.last_payment_entry.configure(state='normal')  # Set to normal before modification
+            tk.last_payment_entry.delete(0, 'end')  # Clear any previous value
+            tk.last_payment_entry.insert(0, payment_due_date_str)  # Insert the payment due date
+            tk.last_payment_entry.configure(state='readonly')  # Set back to readonly
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to set payment due date: {str(e)}")
+            return
+        # Validate required fields
+        if not all([tenant_id, tenant_username, rental_period, rental_amount, deposit_amount, last_payment_date]):
+            messagebox.showerror("Error", "All fields are required!")
+            return
+        # Validate numeric inputs
+        try:
+            rental_amount_float = float(rental_amount)
+            deposit_amount_float = float(deposit_amount)
+        except ValueError:
+            messagebox.showerror("Error", "Rental amount and deposit amount must be valid numbers.")
+            return
+        try:
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            # Get full stall address from Stall table first
+            cursor.execute('''SELECT Stall_Address FROM Stall WHERE Stall_ID = ?''', (stall_id,))
+            stall_address = cursor.fetchone()[0]
+            # Update Stall table
+            cursor.execute('''UPDATE Stall 
+                            SET Stall_Status = ?,
+                                Tenant_ID = ?,
+                                Tenant_Username = ?, 
+                                Rental_Period = ?,
+                                Contract_Start_Date = ?,
+                                Contract_End_Date = ?,
+                                Rental_Amount = ?,
+                                Deposit_Amount = ?,
+                                Payment_Due = ?,
+                                Contract_Status = ?,
+                                Renewal_Status = ?,
+                                Reminder_Date = ?
+                            WHERE Stall_ID = ?''',
+                           (1, tenant_id, tenant_username, rental_period,
+                            contract_start_date.strftime('%Y-%m-%d'),
+                            contract_end_date_str,
+                            rental_amount_float, deposit_amount_float,
+                            last_payment_date, 'Active', 0,
+                            reminder_date, stall_id))
+            if cursor.rowcount == 0:
+                raise Exception("No rows were updated in the database.")
+            cursor.execute("SELECT Postcode FROM Stall WHERE Stall_ID = ?", (stall_id,))
+            postcode = cursor.fetchone()[0]
+            # Get the last payment ID
+            cursor.execute("SELECT MAX(CAST(SUBSTR(Payment_ID, 4) AS INTEGER)) FROM Payment_Manage")
+            last_id = cursor.fetchone()[0]
+            next_id = 1 if last_id is None else last_id + 1
+            # Insert payment records for each month of the rental period
+            for month in range(rental_months):  # This will now correctly iterate for all months
+                payment_id = f"PMT{str(next_id).zfill(5)}"
+                # Calculate payment due date for each month
+                payment_due_date = contract_start_date + relativedelta(months=month, day=8)
+                reminder_date_for_month = payment_due_date - relativedelta(days=7)
+                try:
+                    # Calculate the rental amount for each month
+                    monthly_rental_amount = rental_amount_float
+                    cursor.execute('''INSERT INTO Payment_Manage (
+                        Payment_ID, Payment_Due, Tenant_ID, Tenant_Username, Stall_ID, 
+                        Postcode, Rental_Amount, Status, Due_Date, Overdue_Status,
+                        Overdue_Amount, Total_Amount, Reminder_Date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                   (payment_id,
+                                    payment_due_date.strftime('%Y-%m-%d'),
+                                    tenant_id,
+                                    tenant_username,
+                                    stall_id,
+                                    postcode,
+                                    monthly_rental_amount,
+                                    'Pending',
+                                    payment_due_date.strftime('%Y-%m-%d'),
+                                    'No',
+                                    0,
+                                    monthly_rental_amount,
+                                    reminder_date_for_month.strftime('%Y-%m-%d')))
+                    next_id += 1  # Increment next_id after successful insert
+                except sqlite3.IntegrityError as e:
+                    if "UNIQUE constraint failed: Payment_Manage.Payment_ID" in str(e):
+                        print(f"Duplicate payment_id found: {payment_id}. Incrementing ID and retrying.")
+                        next_id += 1  # Increment next_id and retry
+                    else:
+                        raise
+            # Update Tenant table with Stall_ID and Stall_Address
+            cursor.execute('''UPDATE Tenant 
+                            SET Stall_ID = ?, 
+                                Stall_Address = ?
+                            WHERE Tenant_ID = ?''',
+                           (stall_id, stall_address, tenant_id))
+            conn.commit()
+            messagebox.showinfo("Success", "Stall assigned to tenant successfully!")
+            clear_form()
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to assign stall: {str(e)}")
+        finally:
+            conn.close()
+    def update_deposit_amount(event=None):
+        try:
+            rental_amount = float(tk.rental_amount_entry.get())
+            deposit_amount = rental_amount * 1.5  # ori is 2
+            tk.deposit_entry.delete(0, END)
+            tk.deposit_entry.insert(0, f"{deposit_amount:.2f}")
+            tk.deposit_entry.configure(state='readonly')
+        except ValueError:
+            tk.deposit_entry.delete(0, END)
+    def clear_form():
+        tenant_id_entry.delete(0, END)
+        tk.tenant_username_entry.configure(state='normal')
+        tk.tenant_username_entry.delete(0, END)
+        tk.tenant_username_entry.configure(state='readonly')
+        tk.rental_period_combobox.set("")
+        tk.rental_amount_entry.configure(state='normal')
+        tk.rental_amount_entry.delete(0, END)
+        tk.rental_amount_entry.configure(state='readonly')
+        tk.deposit_entry.configure(state='normal')
+        tk.deposit_entry.delete(0, END)
+        tk.deposit_entry.configure(state='readonly')
+        tk.reminder_entry.configure(state='normal')
+        tk.reminder_entry.delete(0, END)
+        tk.reminder_entry.configure(state='readonly')
+        tk.last_payment_entry.set_date(datetime.now().date())
+        tk.stall_combobox.set("")
+    def add_tenant():
+        # Get values from entries
+        tenant_ic = tk.tenant_ic_entry.get().strip()
+        tenant_username = tk.tenant_username_entry.get().strip()
+        temp_password = tk.pass_entry.get()
+        # Validate inputs
+        if not tenant_ic or not tenant_username:
+            messagebox.showerror("Error", "Please fill in all fields")
+            return
+        try:
+            # Connect to database
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            # Check if IC already exists
+            cursor.execute("SELECT * FROM Tenant WHERE Tenant_IC_Number=?", (tenant_ic,))
+            if cursor.fetchone():
+                messagebox.showerror("Error", "Tenant with this IC already exists")
+                tk.tenant_ic_entry.delete(0, END)
+                tk.tenant_username_entry.delete(0, END)
+                return
+            # Generate username from IC number (last 6 digits)
+            username = tenant_username
+            # Insert new tenant
+            cursor.execute("""
+                INSERT INTO Tenant (
+                    Tenant_IC_Number,
+                    Tenant_Username, 
+                    Tenant_Password
+                ) VALUES (?, ?, ?)
+            """, (tenant_ic, tenant_username, temp_password))
+            conn.commit()
+            messagebox.showinfo("Success", f"Tenant added successfully!\nUsername: {username}")
+            tk.tenant_ic_entry.delete(0, END)
+            tk.tenant_username_entry.delete(0, END)
+            # Clear entries
+            tk.tenant_ic_entry.delete(0, END)
+            tk.tenant_username_entry.delete(0, END)
+            tk.pass_entry.configure(state='normal')
+            tk.pass_entry.delete(0, END)
+            tk.pass_entry.insert(0, "Pass1234")
+            tk.pass_entry.configure(state='readonly')
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        finally:
+            conn.close()
+        label_font = ('Arial', 14, 'bold')
+        entry_font = ('Arial', 14)
+        style = ttk.Style()
+        style.configure('TNotebook.Tab', font=('Arial', 15, 'bold'), padding=[20, 10], width=200)
+        style.configure('TNotebook', tabposition='n')
+        style.map('TNotebook.Tab', foreground=[("selected", "#fd5602")])
+        # Notebook widget
+        notebook = ttk.Notebook(tenant_and_stall)
+        notebook.pack(fill='both', expand=True)  # Use pack instead of place to properly expand
+        # Frame for Add Stall tab
+        add_stall_frame = Frame(notebook, width=1200, height=1000, bg='mint cream')
+        add_stall_frame.pack(fill='both', expand=True)
+        add_stall_frame.pack_propagate(False)
+        # Frame for Assign Stall tab
+        assign_stall_frame = Frame(notebook, width=1200, height=1000, bg='LavenderBlush2')
+        assign_stall_frame.pack(fill='both', expand=True)
+        assign_stall_frame.pack_propagate(False)
+        tenant_register_frame = Frame(notebook, width=1200, height=1000, bg='ivory2')
+        tenant_register_frame.pack(fill='both', expand=True)
+        tenant_register_frame.pack_propagate(False)
+        notebook.add(add_stall_frame, text="  Add New Stall  ")
+        notebook.add(assign_stall_frame, text="  Assign Stall to Tenant  ")
+        notebook.add(tenant_register_frame, text="  Register a New Tenant  ")
+        # Add Stall Tab
+        # Center all elements using a main container frame
+        container_frame = Frame(add_stall_frame, width=1200, height=1000, bg='mint cream')
+        container_frame.pack(fill='both', expand=True)
+        container_frame.pack_propagate(False)
+        # Add Stall Tab
+        stall_frame = Frame(container_frame, bg='mint cream')
+        stall_frame.pack(pady=(80, 0))
+        Label(stall_frame, text="Stall Address:", font=label_font, anchor='w', bg='mint cream').pack(side=LEFT, padx=5)
+        address_entry = ctk.CTkTextbox(stall_frame, width=400, height=100, font=entry_font, wrap=WORD, border_width=2,
+                                       border_color='black')
+        address_entry.pack(side=LEFT)
+        postcode_frame = Frame(container_frame, bg='mint cream')
+        postcode_frame.pack(pady=20)
+        Label(postcode_frame, text="Postcode:", font=label_font, anchor='w', bg='mint cream').pack(side=LEFT, padx=5)
+        postcode_entry = ctk.CTkEntry(postcode_frame, width=200, font=entry_font)
+        postcode_entry.pack(side=LEFT)
+        coordinates_frame = Frame(container_frame, bg='mint cream')
+        coordinates_frame.pack(pady=20)
+        Label(coordinates_frame, text="Latitude:", font=label_font, anchor='w', bg='mint cream').pack(side=LEFT, padx=5)
+        latitude_entry = ctk.CTkEntry(coordinates_frame, width=150, font=entry_font)
+        latitude_entry.pack(side=LEFT, padx=(0, 20))
+        Label(coordinates_frame, text="Longitude:", font=label_font, anchor='w', bg='mint cream').pack(side=LEFT, padx=5)
+        longitude_entry = ctk.CTkEntry(coordinates_frame, width=150, font=entry_font)
+        longitude_entry.pack(side=LEFT)
+        # Image upload frame
+        image_frame = Frame(container_frame, bg='mint cream')
+        image_frame.pack(pady=20)
+        Label(image_frame, text="Stall Image:", font=label_font, anchor='w', bg='mint cream').pack(padx=5)
+        def upload_image():
+            from tkinter import filedialog
+            # Get image file
+            file_path = filedialog.askopenfilename(
+                filetypes=[("Image files", "*.jpg *.jpeg *.png *.gif *.bmp")]
+            )
+            if (file_path):
+                try:
+                    # Open and resize image
+                    image = Image.open(file_path)
+                    image = image.resize((300, 300), Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(image)
+                    # Update image label
+                    image_label.config(image=photo)
+                    image_label.image = photo  # Keep a reference
+                    # Store file path
+                    image_frame.file_path = file_path
+                    # Change button text
+                    upload_button.config(text="Reupload Image")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to upload image: {str(e)}")
+        upload_button = ctk.CTkButton(image_frame, text="Upload Image", command=upload_image, font=('Arial', 10, 'bold'),
+                                      fg_color='#fd5602', hover_color='white')
+        upload_button.pack(padx=5, pady=10)
+        # Create vertical container for image label
+        image_container = Frame(image_frame, bg='mint cream')
+        image_container.pack(padx=10, pady=10)
+        # Label to display the image
+        image_label = Label(image_container, bg='mint cream')
+        image_label.pack()
+        stall_rental_frame = Frame(container_frame, bg='mint cream')
+        stall_rental_frame.pack(pady=20)
+        Label(stall_rental_frame, text="Stall Rental (RM):", font=label_font, anchor='w', bg='mint cream').pack(side=LEFT,
+                                                                                                                padx=5)
+        stall_rental_entry = ctk.CTkEntry(stall_rental_frame, width=200, font=entry_font)
+        stall_rental_entry.pack(side=LEFT)
+        def add_stall():
+            # Get values from entry fields
+            stall_address = address_entry.get("1.0", "end-1c")  # For Text widget
+            stall_postcode = postcode_entry.get().strip()
+            # Validate postcode format
+            if not stall_postcode.isdigit() or len(stall_postcode) != 5:
+                messagebox.showerror("Error", "Postcode must be exactly 5 digits")
+                return
+            # Check if postcode appears in address
+            if stall_postcode not in stall_address:
+                messagebox.showerror("Error", "Postcode must match the one in stall address")
+                return
+            stall_rental = stall_rental_entry.get()
+            stall_latitude = latitude_entry.get()
+            stall_longitude = longitude_entry.get()
+            # Validate all fields are filled
+            if not all([stall_address, stall_postcode, stall_rental, stall_latitude, stall_longitude]):
+                messagebox.showerror("Error", "Please fill in all fields")
+                return
+            # Validate if image was uploaded
+            if not hasattr(image_frame, 'file_path'):
+                messagebox.showerror("Error", "Please upload an image")
+                return
+            try:
+                # Connect to database
+                conn = sqlite3.connect('govRental.db')
+                cursor = conn.cursor()
+                # Insert new stall record with all details including latitude and longitude
+                cursor.execute("""
+                    INSERT INTO Stall (Stall_Address, Postcode, Address_Image, Rental_Amount, Latitude, Longitude, Stall_Status)
+                    VALUES (?, ?, ?, ?, ?, ?, 0)
+                """, (stall_address, stall_postcode, image_frame.file_path, stall_rental, stall_latitude, stall_longitude))
+                conn.commit()
+                cursor.execute("SELECT last_insert_rowid()")
+                stall_id = cursor.fetchone()[0]
+                messagebox.showinfo("Success", f"Stall details saved successfully! Stall ID: {stall_id}")
+                # Clear entry fields
+                address_entry.delete("1.0", "end-1c")  # For Text widget
+                postcode_entry.delete(0, END)
+                stall_rental_entry.delete(0, END)
+                latitude_entry.delete(0, END)
+                longitude_entry.delete(0, END)
+                image_label.config(image='')
+                upload_button.config(text="Upload Image")
+                delattr(image_frame, 'file_path')
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"Failed to save stall details: {str(e)}")
+            finally:
+                conn.close()
+        add_button = Button(container_frame, text="Add Stall", command=add_stall, font=('Arial', 12, 'bold'), fg='white',
+                            bg='#fd5602', activebackground='white', width=20)
+        add_button.pack(pady=20)
+        # Assign Stall Tab - Center elements
+        assign_container = Frame(assign_stall_frame, width=1200, height=1000, bg='LavenderBlush2')
+        assign_container.pack(fill='both', expand=True)
+        assign_container.pack_propagate(False)
+        search_frame = Frame(assign_container, bg='LavenderBlush2')
+        search_frame.pack(pady=(50, 0))
+        Label(search_frame, text="Search by Postcode:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                                   padx=5)
+        search_postcode_entry = Entry(search_frame, width=30, font=entry_font)
+        search_postcode_entry.pack(side=LEFT)
+        search_button = Button(search_frame, text="Search", command=search_stalls_by_postcode, activebackground='#fd5602',
+                               font=('Arial', 10, 'bold'))
+        search_button.pack(side=LEFT, padx=5)
+        stall_frame = Frame(assign_container, bg='LavenderBlush2')
+        stall_frame.pack(pady=20)
+        Label(stall_frame, text="Available Stalls:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                        padx=5)
+        stall_combobox = ttk.Combobox(stall_frame, width=40, font=entry_font)
+        stall_combobox.pack(side=LEFT)
+        def view_stall_image():
+            selected_stall = stall_combobox.get()
+            if not selected_stall:
+                messagebox.showerror("Error", "Please select a stall first.")
+                return
+            stall_id = selected_stall.split(",")[0].split(":")[1].strip()
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            try:
+                cursor.execute("SELECT Address_Image FROM Stall WHERE Stall_ID = ?", (stall_id,))
+                result = cursor.fetchone()
+                if result and result[0]:
+                    image_path = result[0]
+                    try:
+                        img = Image.open(image_path)
+                        img.show()
+                    except FileNotFoundError:
+                        messagebox.showerror("Error", "Image file not found.")
+                else:
+                    messagebox.showinfo("No Image", "No image available for this stall.")
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"Failed to retrieve image: {str(e)}")
+            finally:
+                conn.close()
+        view_image_btn = Button(stall_frame, text="View Stall Image",
+                                command=view_stall_image,
+                                font=('Arial', 10, 'bold'), bg='#fd5602', fg='white')
+        view_image_btn.pack(side=LEFT, padx=5)
+        def enable_view_button(*args):
+            if stall_combobox.get():
+                view_image_btn.config(state='normal')
+            else:
+                view_image_btn.config(state='disabled')
+        stall_combobox.bind('<<ComboboxSelected>>', enable_view_button)
+        stall_combobox.bind('<KeyRelease>', enable_view_button)
+        # Create a container frame for tenant ID and username
+        tenant_info_frame = Frame(assign_container, bg='LavenderBlush2')
+        tenant_info_frame.pack(pady=20)
+        # Left side - Tenant ID
+        tenant_id_frame = Frame(tenant_info_frame, bg='LavenderBlush2')
+        tenant_id_frame.pack(side=LEFT, padx=20)
+        Label(tenant_id_frame, text="Tenant ID:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT, padx=5)
+        tenant_id_entry = Entry(tenant_id_frame, width=15, font=entry_font)
+        tenant_id_entry.pack(side=LEFT)
+        tenant_id_entry.bind("<FocusOut>", fetch_tenant_username)
+        # Right side - Username
+        username_frame = Frame(tenant_info_frame, bg='LavenderBlush2')
+        username_frame.pack(side=LEFT, padx=20)
+        Label(username_frame, text="Tenant Username:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                              padx=5)
+        tenant_username_entry = Entry(username_frame, width=15, font=entry_font, state='readonly')
+        tenant_username_entry.pack(side=LEFT)
+        # Rental period frame
+        rental_period_frame = Frame(assign_container, bg='LavenderBlush2')
+        rental_period_frame.pack(pady=20)
+        Label(rental_period_frame, text="Rental Period:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                             padx=5)
+        rental_period_combobox = ttk.Combobox(rental_period_frame, values=["6 months", "1 year", "2 years"],
+                                              width=30, font=entry_font)
+        rental_period_combobox.pack(side=LEFT)
+        def update_contract_dates(event=None):
+            from dateutil.relativedelta import relativedelta
+            rental_period = rental_period_combobox.get()
+            if rental_period:
+                start_date = contract_start_entry.get_date()
+                # Calculate months to add based on rental period
+                if rental_period == "6 months":
+                    months = 6
+                elif rental_period == "1 year":
+                    months = 12
+                else:  # 2 years
+                    months = 24
+                # Calculate end date by adding months to start date
+                end_date = start_date + relativedelta(months=months)
+                contract_end_entry.set_date(end_date)
+        # Update end date when rental period changes
+        rental_period_combobox.bind("<<ComboboxSelected>>", update_contract_dates)
+        start_date_frame = Frame(assign_container, bg='LavenderBlush2')
+        start_date_frame.pack(pady=20)
+        Label(start_date_frame, text="Contract Start Date:", font=label_font, anchor='w', bg='LavenderBlush2').pack(
+            side=LEFT, padx=5)
+        contract_start_entry = DateEntry(start_date_frame, width=27, background='navy', foreground='white', borderwidth=2,
+                                         font=entry_font, date_pattern='yy-mm-dd')
+        contract_start_entry.pack(side=LEFT)
+        # Update end date whenever start date or rental period changes
+        def auto_update_dates(*args):
+            if not rental_period_combobox.get():
+                return
+            from dateutil.relativedelta import relativedelta
+            start_date = contract_start_entry.get_date()
+            # Calculate months based on rental period
+            rental_period = rental_period_combobox.get()
+            if rental_period == "6 months":
+                months = 6
+            elif rental_period == "1 year":
+                months = 12
+            else:  # 2 years
+                months = 24
+            # Calculate and set end date
+            end_date = start_date + relativedelta(months=months)
+            contract_end_entry.set_date(end_date)
+        # Bind auto update to both start date and rental period changes
+        contract_start_entry.bind("<<DateEntrySelected>>", auto_update_dates)
+        contract_start_entry.bind("<KeyRelease>", auto_update_dates)
+        contract_start_entry.bind("<FocusOut>", auto_update_dates)
+        rental_period_combobox.bind("<<ComboboxSelected>>", auto_update_dates)
+        end_date_frame = Frame(assign_container, bg='LavenderBlush2')
+        end_date_frame.pack(pady=20)
+        Label(end_date_frame, text="Contract End Date:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                            padx=5)
+        contract_end_entry = DateEntry(end_date_frame, width=27, background='navy', foreground='white', borderwidth=2,
+                                       font=entry_font, state='readonly', date_pattern='yy-mm-dd')  # Made end date readonly
+        contract_end_entry.pack(side=LEFT)
+        rental_amount_frame = Frame(assign_container, bg='LavenderBlush2')
+        rental_amount_frame.pack(pady=20)
+        Label(rental_amount_frame, text="Rental Amount (RM):", font=label_font, anchor='w', bg='LavenderBlush2').pack(
+            side=LEFT, padx=5)
+        rental_amount_entry = Entry(rental_amount_frame, width=30, font=entry_font, state='readonly')
+        rental_amount_entry.pack(side=LEFT)
+        def update_rental():
+            if update_rental_button["text"] == "Update Rental":
+                rental_amount_entry.config(state='normal')
+                update_rental_button.config(text="Save Changes")
+            else:
+                try:
+                    new_amount = float(rental_amount_entry.get())
+                    selected_stall = stall_combobox.get()
+                    if selected_stall:
+                        stall_id = selected_stall.split(",")[0].split(":")[1].strip()
+                        conn = sqlite3.connect('govRental.db')
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE Stall SET Rental_Amount = ? WHERE Stall_ID = ?", (new_amount, stall_id))
+                        conn.commit()
+                        conn.close()
+                        messagebox.showinfo("Success", "Rental amount updated successfully!")
+                        rental_amount_entry.config(state='readonly')
+                        update_rental_button.config(text="Update Rental")
+                        # Update deposit and total amounts
+                        update_all_amounts(new_amount)
+                except ValueError:
+                    messagebox.showerror("Error", "Please enter a valid number for rental amount")
+                    rental_amount_entry.delete(0, END)
+                    rental_amount_entry.focus()
+        update_rental_button = Button(rental_amount_frame, text="Update Rental", font=('Arial', 10, 'bold'),
+                                      activebackground='#fd5602', command=update_rental)
+        update_rental_button.pack(side=LEFT, padx=5)
+        def update_all_amounts(rental_amount):
+            # Update rental amount
+            rental_amount_entry.config(state='normal')
+            rental_amount_entry.delete(0, END)
+            rental_amount_entry.insert(0, str(rental_amount))
+            rental_amount_entry.config(state='readonly')
+            # Update deposit amount (1.5 times rental)
+            deposit = rental_amount * 1.5
+            deposit_entry.config(state='normal')
+            deposit_entry.delete(0, END)
+            deposit_entry.insert(0, str(deposit))
+            deposit_entry.config(state='readonly')
+            # Update total amount
+            total = rental_amount + deposit
+            total_entry.config(state='normal')
+            total_entry.delete(0, END)
+            total_entry.insert(0, str(total))
+            total_entry.config(state='readonly')
+            # Save total amount to database
+            selected_stall = stall_combobox.get()
+            if selected_stall:
+                stall_id = selected_stall.split(",")[0].split(":")[1].strip()
+                conn = sqlite3.connect('govRental.db')
+                cursor = conn.cursor()
+                cursor.execute("UPDATE Stall SET Total_Amount = ? WHERE Stall_ID = ?", (total, stall_id))
+                conn.commit()
+                conn.close()
+        # Fetch rental amount when stall is selected
+        def update_rental_amount(event=None):
+            selected_stall = stall_combobox.get()
+            if selected_stall:
+                stall_id = selected_stall.split(",")[0].split(":")[1].strip()
+                conn = sqlite3.connect('govRental.db')
+                cursor = conn.cursor()
+                cursor.execute("SELECT Rental_Amount FROM Stall WHERE Stall_ID = ?", (stall_id,))
+                result = cursor.fetchone()
+                conn.close()
+                if result:
+                    rental_amount = float(result[0])
+                    update_all_amounts(rental_amount)
+        stall_combobox.bind('<<ComboboxSelected>>', update_rental_amount)
+        deposit_frame = Frame(assign_container, bg='LavenderBlush2')
+        deposit_frame.pack(pady=20)
+        Label(deposit_frame, text="Deposit Amount (RM):", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                             padx=5)
+        deposit_entry = Entry(deposit_frame, width=30, font=entry_font, state='readonly')
+        deposit_entry.pack(side=LEFT)
+        total_frame = Frame(assign_container, bg='LavenderBlush2')
+        total_frame.pack(pady=20)
+        Label(total_frame, text="Total Amount (RM):", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                         padx=5)
+        total_entry = Entry(total_frame, width=30, font=entry_font, state='readonly')
+        total_entry.pack(side=LEFT)
+        payment_date_frame = Frame(assign_container, bg='LavenderBlush2')
+        payment_date_frame.pack(pady=20)
+        # Payment by date
+        payment_date_inner_frame = Frame(payment_date_frame, bg='LavenderBlush2')
+        payment_date_inner_frame.pack(fill=X)
+        # Payment due date
+        Label(payment_date_inner_frame, text="Payment due by:", font=label_font, anchor='w', bg='LavenderBlush2').pack(
+            side=LEFT, padx=5)
+        last_payment_entry = DateEntry(payment_date_inner_frame, width=27, background='darkblue', foreground='white',
+                                       borderwidth=2, font=entry_font, calendar_position='above', mindate=datetime.now(),
+                                       date_pattern='yy-mm-dd')
+        last_payment_entry.pack(side=LEFT)
+        # Update payment due date when contract start date changes
+        def update_payment_due_date(*args):
+            start_date = contract_start_entry.get_date()
+            # Set payment due date to 7 days after the start date
+            payment_due_date = start_date + timedelta(days=7)
+            # Update the last payment entry with the calculated payment due date
+            last_payment_entry.set_date(payment_due_date)
+            # Update reminder date whenever payment due date changes
+            reminder_date = payment_due_date - timedelta(days=3)
+            reminder_entry.set_date(reminder_date)
+            reminder_entry.config(state='readonly')
+        contract_start_entry.bind('<<DateEntrySelected>>', update_payment_due_date)
+        # Reminder date
+        Label(payment_date_inner_frame, text="Send reminder on:", font=label_font, anchor='w', bg='LavenderBlush2').pack(
+            side=LEFT, padx=5)
+        reminder_entry = DateEntry(payment_date_inner_frame, width=27, background='darkblue', foreground='white',
+                                   borderwidth=2, font=entry_font, calendar_position='above', mindate=datetime.now(),
+                                   date_pattern='yy-mm-dd')  # Set date format to yyyy-mm-dd
+        reminder_entry.pack(side=LEFT)
+        # Update reminder date when payment due date changes
+        def update_reminder_date(*args):
+            payment_due = last_payment_entry.get_date()
+            reminder_date = payment_due - timedelta(days=3)
+            reminder_entry.set_date(reminder_date)
+            reminder_entry.config(state='readonly')
+        # Bind to both DateEntrySelected and when payment due date is updated
+        last_payment_entry.bind('<<DateEntrySelected>>', update_reminder_date)
+        # Initial updates
+        update_payment_due_date()  # This will also update the reminder date
+        agreement_frame = Frame(assign_container, bg='LavenderBlush2')
+        agreement_frame.pack(pady=20)
+        Label(agreement_frame, text="Contract Agreement:", font=label_font, anchor='w', bg='LavenderBlush2').pack(side=LEFT,
+                                                                                                              padx=5)
+        def generate_agreement():
+            # Verify all fields are filled
+            if not all([stall_combobox.get(), tenant_id_entry.get(), tenant_username_entry.get(),
+                        rental_period_combobox.get(), rental_amount_entry.get(), deposit_entry.get()]):
+                messagebox.showerror("Error", "Please fill in all required fields before generating agreement")
+                return
+            # Get all the entered details
+            stall_details = stall_combobox.get().split(",")
+            stall_id = stall_details[0].split(":")[1].strip()
+            # Get full stall address by taking everything after first colon
+            stall_address = stall_combobox.get().split(":", 2)[2].strip()
+            tenant_id = tenant_id_entry.get()
+            tenant_username = tenant_username_entry.get()
+            rental_period = rental_period_combobox.get()
+            start_date = contract_start_entry.get_date()
+            end_date = contract_end_entry.get_date()
+            rental_amount = rental_amount_entry.get()
+            deposit = deposit_entry.get()
+            # Create preview window
+            preview_window = Toplevel()
+            preview_window.title("Agreement Preview")
+            preview_window.geometry("600x800")
+            # Create scrollable text widget for preview
+            preview_frame = Frame(preview_window)
+            preview_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+            preview_text = Text(preview_frame, wrap=WORD, font=("Helvetica", 12))
+            preview_text.pack(fill=BOTH, expand=True)
+            # Insert agreement content
+            # Fetch tenant IC from database
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT Tenant_IC_Number FROM Tenant WHERE Tenant_Username = ?", (tenant_username,))
+            tenant_ic = cursor.fetchone()[0]
+            conn.close()
+            preview_text.insert(END, "RENTAL AGREEMENT\n\n", "title")
+            preview_text.insert(END, f"Tenant Name: {tenant_username}\n")
+            preview_text.insert(END, f"Tenant IC: {tenant_ic}\n")
+            preview_text.insert(END, f"Date: {datetime.now().strftime('%Y-%m-%d')}\n\n")
+            preview_text.insert(END, f"Stall ID: {stall_id}\n")
+            preview_text.insert(END, f"Stall Address: {stall_address}\n")
+            preview_text.insert(END, f"Tenant ID: {tenant_id}\n")
+            preview_text.insert(END, f"Tenant Name: {tenant_username}\n")
+            preview_text.insert(END, f"Rental Period: {rental_period}\n")
+            preview_text.insert(END, f"Contract Start Date: {start_date}\n")
+            preview_text.insert(END, f"Contract End Date: {end_date}\n")
+            preview_text.insert(END, f"Monthly Rental Amount: RM {rental_amount}\n")
+            preview_text.insert(END, f"Security Deposit: RM {deposit}\n")
+            preview_text.insert(END, f"Total Amount: RM {total_entry.get()}\n")
+            ''''
+            # Set contract status as active
+            contract_status = "Active"
+            preview_text.insert(END, f"Contract Status: {contract_status}\n\n")
+            '''
+            # Configure bold red text style
+            preview_text.tag_configure("bold_red", font=("Helvetica", 12, "bold"), foreground="red")
+            # Insert payment due date in bold red
+            preview_text.insert(END, f"\n\nPlease paid by: {last_payment_entry.get_date()}\n\n", "bold_red")
+            # Get current logged in admin info from login details
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            cursor.execute("SELECT Admin_ID, Admin_Name FROM Admin WHERE Admin_IC_Number = ?", (admin_ic,))
+            admin = cursor.fetchone()
+            conn.close()
+            if admin:
+                preview_text.insert(END, f"Admin ID: {admin[0]} | Admin Name: {admin[1]} \n")
+            else:
+                preview_text.insert(END, "Admin information not found\n")
+            # Fetch business information
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT Business_Name, Licence_No, Business_Hours, Location, Contact_No, Email_Address FROM Business_Information")
+            business_info = cursor.fetchone()
+            conn.close()
+            if business_info:
+                preview_text.insert(END, f"{business_info[0]}\n")
+                preview_text.insert(END, f"License No: {business_info[1]}\n")
+                preview_text.insert(END, f"{business_info[2]}\n")
+                preview_text.insert(END, f"{business_info[3]}\n")
+                preview_text.insert(END, f"Contact No: {business_info[4]}, Email: {business_info[5]}\n")
+            preview_text.tag_configure("title", font=("Helvetica", 16, "bold"))
+            preview_text.config(state=DISABLED)  # Make text read-only
+            def confirm_and_generate():
+                global notification
+                try:
+                    from reportlab.pdfgen import canvas
+                    from reportlab.lib.pagesizes import letter
+                    # Create PDF
+                    c = canvas.Canvas(f"{tenant_username}_{tenant_id}_{start_date}.pdf", pagesize=letter)
+                    # Add content
+                    # First page
+                    c.setFont("Helvetica-Bold", 16)
+                    c.drawString(50, 750, "RENTAL AGREEMENT")
+                    # Add tenant details right after title
+                    c.setFont("Helvetica", 12)
+                    c.drawString(50, 720, f"Tenant Name: {tenant_username}")
+                    c.drawString(50, 700, f"Tenant IC: {tenant_ic}")
+                    c.drawString(50, 680, f"Date: {datetime.now().strftime('%Y-%m-%d')}")
+                    # Main content
+                    c.drawString(50, 640, f"Stall ID: {stall_id}")
+                    c.drawString(50, 620, f"Stall Address: {stall_address}")
+                    c.drawString(50, 600, f"Tenant ID: {tenant_id}")
+                    c.drawString(50, 580, f"Rental Period: {rental_period}")
+                    c.drawString(50, 560, f"Contract Start Date: {start_date}")
+                    c.drawString(50, 540, f"Contract End Date: {end_date}")
+                    # Financial details
+                    y_pos = 520
+                    for text in [
+                        f"Monthly Rental Amount: RM {rental_amount}",
+                        f"Security Deposit: RM {deposit}",
+                        f"Total Amount: RM {total_entry.get()}",
+                        f"Contract Status: Active",
+                        f"Please paid by: {last_payment_entry.get_date()}"  # Added payment due date
+                    ]:
+                        c.drawString(50, y_pos, text)
+                        y_pos -= 20
+                    # Signature section
+                    y_pos = y_pos - 20
+                    # Get admin info from database
+                    conn = sqlite3.connect('govRental.db')
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT Admin_ID, Admin_Name FROM Admin WHERE Admin_IC_Number = ?", (admin_ic,))
+                    admin = cursor.fetchone()
+                    conn.close()
+                    if admin:  # Only add admin info if found
+                        for text in [
+                            f"Admin ID: {admin[0]}, Admin Name: {admin[1]}",
+                            f"Date: {datetime.now().strftime('%Y-%m-%d')}"
+                        ]:
+                            c.drawString(50, y_pos, text)
+                            y_pos -= 20
+                    # Add business information
+                    conn = sqlite3.connect('govRental.db')
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT Business_Name, Licence_No, Business_Hours, Location, Contact_No, Email_Address FROM Business_Information")
+                    business_info = cursor.fetchone()
+                    conn.close()
+                    if business_info:
+                        y_pos = y_pos - 40
+                        for text in [
+                            f"{business_info[0]}",
+                            f"License No: {business_info[1]}",
+                            f"{business_info[2]}",
+                            f"{business_info[3]}",
+                            f"Contact No: {business_info[4]}, Email: {business_info[5]}"
+                        ]:
+                            c.drawString(50, y_pos, text)
+                            y_pos -= 20
+                    # Second page
+                    c.showPage()
+                    c.setFont("Helvetica-Bold", 14)
+                    c.drawString(50, 750, "Terms & Conditions")
+                    c.setFont("Helvetica", 12)
+                    y = 700
+                    line_height = 20
+                    penalty = float(rental_amount) * 0.3
+                    terms = [
+                        f"Monthly rental of RM{rental_amount} is due at the 8th of each month.",
+                        f"Late payments will incur a 30% penalty, amounting to RM{penalty:.2f}.",
+                        f"The rental period begins on {start_date} and ends on {end_date} for an initial term of {rental_period}.",
+                        "The Tenant cannot assign, transfer, or sublet the stall to others.",
+                        "The Tenant is responsible for maintaining cleanliness and repairing any damages caused.",
+                        "The Landlord may inspect the stall with prior notice to ensure compliance.",
+                        "Upon termination or expiration, the Tenant must return the stall in its original condition, considering normal wear and tear.",
+                        "Cleaning or repair costs will be deducted from the security deposit.",
+                        "Breaching any terms, including subletting or unauthorized activities, may result in immediate termination of the Agreement.",
+                        "Following termination for breach, the Tenant will be banned from renting government stalls in the future.",
+                        "This Agreement supersedes any prior agreements and can only be amended in writing and signed by both parties."
+                    ]
+                    # Add image after terms
+                    try:
+                        from reportlab.lib.utils import ImageReader
+                        import os
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        image_path = os.path.join(current_dir, "images", "Gov_Agreement_Stamp.png")
+                        if os.path.exists(image_path):
+                            img = ImageReader(image_path)
+                            img_width = 200
+                            img_height = 200
+                            x = (letter[0] - img_width) / 2
+                            c.drawImage(img, x, y - 20, width=img_width, height=img_height)
+                        else:
+                            print(f"Image file not found at: {image_path}")
+                    except Exception as e:
+                        print(f"Could not add image: {str(e)}")
+                    for term in terms:
+                        words = term.split()
+                        line = ''
+                        for word in words:
+                            test_line = line + word + ' '
+                            if len(test_line) * 6 > 500:
+                                c.drawString(50, y, line)
+                                y -= line_height
+                                line = word + ' '
+                            else:
+                                line = test_line
+                        c.drawString(50, y, line)
+                        y -= line_height * 1.5
+                    c.save()
+                    root.update()
+                    messagebox.showinfo("Success", "Agreement generated successfully!")
+                    conn.close()
+                    preview_window.destroy()
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to generate agreement: {str(e)}")
+            def cancel_generation():
+                preview_window.destroy()
+            # Add buttons frame
+            button_frame = Frame(preview_window)
+            button_frame.pack(pady=20)
+            confirm_button = Button(button_frame, text="Confirm & Generate PDF",
+                                   command=confirm_and_generate,
+                                   font=("Arial", 10, "bold"),
+                                   bg="#4CAF50", fg="white")
+            confirm_button.pack(side=LEFT, padx=10)
+            cancel_button = Button(button_frame, text="Make Changes",
+                                   command=cancel_generation,
+                                   font=("Arial", 10, "bold"),
+                                   bg="#f44336", fg="white")
+            cancel_button.pack(side=LEFT, padx=10)
+        agreement_button = Button(agreement_frame, text="Generate Agreement", font=entry_font, command=generate_agreement)
+        agreement_button.pack(side=LEFT)
+        assign_button = Button(assign_container, text="Assign Stall", command=assign_stall, fg='white', bg='#fd5602',
+                               activebackground='white', font=label_font)
+        assign_button.pack(pady=20)
+        # Tenant Register Tab - Center elements
+        register_container = Frame(tenant_register_frame, width=1200, height=1000, bg='ivory2')
+        register_container.pack(fill='both', expand=True)
+        register_container.pack_propagate(False)
+        # Create frames with explicit dimensions and background colors
+        add_tenant_frame1 = Frame(register_container, width=400, height=1000, bg='ivory2')
+        add_tenant_frame1.pack(side=LEFT, fill='both', expand=True)
+        add_tenant_frame1.pack_propagate(False)
+        add_tenant_frame2 = Frame(register_container, width=800, height=1000, bg='floral white')
+        add_tenant_frame2.pack(side=RIGHT, fill='both', expand=True)
+        add_tenant_frame2.pack_propagate(False)
+        # Add authentication image
+        auth_image = Image.open(r"C:\Users\Vennis\Downloads\KaiShuang\USER AUTHENTICATION AUTHORIZATION.png")
+        auth_image = auth_image.resize((250, 250), Image.Resampling.LANCZOS)  # Resize image
+        auth_photo = ImageTk.PhotoImage(auth_image)
+        auth_label = Label(add_tenant_frame1, image=auth_photo, bg='ivory2')
+        auth_label.image = auth_photo  # Keep a reference to prevent garbage collection
+        auth_label.pack(pady=(50,0))
+        # Add form elements to right frame
+        form_frame = Frame(add_tenant_frame2, bg='floral white')
+        form_frame.pack(pady=50)
+        ic_frame = Frame(form_frame, bg='floral white')
+        ic_frame.pack(pady=20)
+        Label(ic_frame, text="Tenant IC Number: ", font=label_font, bg='floral white').pack(side=LEFT)
+        tenant_ic_entry = ctk.CTkEntry(ic_frame, width=300, font=entry_font)
+        tenant_ic_entry.pack(side=LEFT)
+        name_frame = Frame(form_frame, bg='floral white')
+        name_frame.pack(pady=20)
+        Label(name_frame, text="Tenant Name:", font=label_font, bg='floral white').pack(side=LEFT)
+        tenant_username_entry = ctk.CTkEntry(name_frame, width=300, font=entry_font)
+        tenant_username_entry.pack(side=LEFT)
+        shining_label = Label(form_frame, text="* * * Temporary Password for every tenant is set refer to their IC Number. * * *",
+                            font=('Arial', 12, 'italic', 'bold'), fg='blue', bg='floral white')
+        shining_label.pack(pady=20)
+        def shine():
+            colors = ['blue', 'navy']
+            current_color = shining_label.cget('fg')
+            next_color = colors[(colors.index(current_color) + 1) % len(colors)]
+            shining_label.config(fg=next_color)
+            register_container.after(300, shine)
+        shine()
+        pass_frame = Frame(form_frame, bg='floral white')
+        pass_frame.pack(pady=20)
+        Label(pass_frame, text="Temporary Password :", font=label_font, bg='floral white').pack(side=LEFT)
+        pass_entry = ctk.CTkEntry(pass_frame, width=300, font=entry_font, state='normal')
+        pass_entry.pack(side=LEFT)
+        def update_password(*args):
+            ic = tenant_ic_entry.get()
+            pass_entry.configure(state='normal')
+            pass_entry.delete(0, 'end')
+            pass_entry.insert(0, ic)
+            pass_entry.configure(state='readonly')
+        tenant_ic_entry.bind('<KeyRelease>', update_password)
+        add_button = ctk.CTkButton(form_frame, text="Register New Tenant", command=add_tenant,
+                                 font=('Arial', 12, 'bold'), fg_color='#fd5602',
+                                 hover_color='#db4a02', width=200)
+        add_button.pack(pady=20)
+        # change Tenant database to Null for others except Tenant_IC_Number, Tenant_Username, Password
+    def payment_management():
+        payment_manage_frame = Frame(main_frame)
+        payment_manage_frame.place(relwidth=1, relheight=1)
+        def search_payments():
+            start_date = start_date_entry.get()
+            end_date = end_date_entry.get()
+            # Clear existing items in treeview
+            for item in transaction_tree.get_children():
+                transaction_tree.delete(item)
+            try:
+                # Query payments within date range with calculated fields
+                cursor.execute("""
+                SELECT Payment_ID, Tenant_ID, Tenant_Name, Transaction_Date, 
+                       Rental_Amount, Status, Overdue_Status, Overdue_Amount, Total_Amount
+                FROM Payment_Manage
+                WHERE Transaction_Date BETWEEN ? AND ?
+                """, (start_date, end_date))
+                payments = cursor.fetchall()
+                # Insert payments into treeview
+                for payment in payments:
+                    transaction_tree.insert('', 'end', values=payment)
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        def load_all_payments():
+            # Clear existing items in treeview
+            for item in transaction_tree.get_children():
+                transaction_tree.delete(item)
+            try:
+                # Query all payments with calculated fields
+                cursor.execute("""
+                SELECT Payment_ID, Tenant_ID, Tenant_Name, Transaction_Date, 
+                       Rental_Amount, Status, Overdue_Status, Overdue_Amount, Total_Amount
+                FROM Payment_Manage
+            """)
+                payments = cursor.fetchall()
+                # Insert payments into treeview
+                for payment in payments:
+                    transaction_tree.insert('', 'end', values=payment)
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        def view_monthly_payments():
+            # Clear existing items in treeview
+            for item in transaction_tree.get_children():
+                transaction_tree.delete(item)
+            try:
+                # Query payments grouped by month with calculated fields
+                cursor.execute("""
+                SELECT Payment_ID, Tenant_ID, Tenant_Name, Transaction_Date, 
+                       Rental_Amount, Status, Overdue_Status, Overdue_Amount, Total_Amount
+                FROM Payment_Manage
+                ORDER BY strftime('%Y-%m', Transaction_Date)
+                """)
+                payments = cursor.fetchall()
+                # Insert payments into treeview
+                for payment in payments:
+                    transaction_tree.insert('', 'end', values=payment)
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        Label(payment_manage_frame, text="Admin- Payment Management", fg='black', font=("Arial", 35, "bold")).place(x=650,
+                                                                                                                    y=30)
+        # Define font for labels
+        font = ("Arial", 14, "bold")
+        notebook = ttk.Notebook(payment_manage_frame)
+        notebook.place(x=0, y=100, width=1920, height=930)
+        # Create Transaction History tab
+        transaction_frame = Frame(notebook, bg='mint cream')
+        notebook.add(transaction_frame, text='  Payment Management', padding=10)
+        style = ttk.Style()
+        style.configure('TNotebook.Tab', font=('Arial', 16, 'bold'))
+        # Configure notebook tab width and selected color
+        style.configure('TNotebook', tabposition='n', width=1920)
+        style.configure('TNotebook.Tab', width=960)  # Split width evenly between 2 tabs
+        style.map('TNotebook.Tab', foreground=[('selected', '#fd5602')])
+        # Create Overdue Payments tab
+        overdue_frame = Frame(notebook, bg='mint cream')
+        notebook.add(overdue_frame, text='  Overdue Management', padding=10)
+        # Add date selection and search to Transaction History tab
+        date_frame = Frame(transaction_frame, bg='mint cream')
+        date_frame.pack(pady=10, fill=X)  # Added fill=X to make frame expand horizontally
+        # Label for Start Date
+        start_date_label = Label(date_frame, text="Start Date:", font=("Arial", 14, "bold"), bg='mint cream')
+        start_date_label.pack(side=LEFT, padx=15)  # Changed to pack layout
+        # Date Entry for Start Date
+        start_date_entry = DateEntry(date_frame, font=font, width=12, background='darkblue', foreground='white',
+                                     date_pattern='yyyy-mm-dd')
+        start_date_entry.pack(side=LEFT, padx=15)  # Changed to pack layout
+        # Label for End Date
+        end_date_label = Label(date_frame, text="End Date:", font=("Arial", 14, "bold"), bg='mint cream')
+        end_date_label.pack(side=LEFT, padx=15)  # Changed to pack layout
+        # Date Entry for End Date
+        end_date_entry = DateEntry(date_frame, font=font, width=12, background='darkblue', foreground='white',
+                                   date_pattern='yyyy-mm-dd')
+        end_date_entry.pack(side=LEFT, padx=15)  # Changed to pack layout
+        # Search Button
+        search_button = ttk.Button(date_frame, text="Search",
+                                   command=lambda: search_payments(start_date_entry.get(), end_date_entry.get()),
+                                   style="TButton")
+        style = ttk.Style()
+        style.configure("TButton", font=font)
+        search_button.pack(side=LEFT, padx=15)  # Changed to pack layout
+        # Function to search payments between dates
+        def search_payments(start_date, end_date):
+            # Clear existing items in treeview
+            for item in transaction_tree.get_children():
+                transaction_tree.delete(item)
+            try:
+                # Query payments between selected dates
+                cursor.execute("""
+                SELECT Payment_ID, Tenant_ID, Tenant_Name, Transaction_Date, 
+                       Rental_Amount, Status, Overdue_Status, Overdue_Amount, Total_Amount
+                FROM Payment_Manage
+                    WHERE DATE(Transaction_Date) BETWEEN ? AND ?
+                """, (start_date, end_date))
+                payments = cursor.fetchall()
+                # Insert filtered payments into treeview
+                for payment in payments:
+                    transaction_tree.insert('', 'end', values=payment)
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        # Create Treeview for Transaction History
+        transaction_tree = ttk.Treeview(transaction_frame, columns=(
+            "Payment ID", "Tenant ID", "Tenant Name", "Date", "Amount", "Status", "Overdue Status", "Overdue Amount",
+            "Total Amount"), show="headings", height=20)
+        # Configure Transaction History columns with center alignment
+        # Configure column headings
+        transaction_tree.heading("Payment ID", text="Payment ID", anchor=CENTER)
+        transaction_tree.heading("Tenant ID", text="Tenant ID", anchor=CENTER)
+        transaction_tree.heading("Tenant Name", text="Tenant Name", anchor=CENTER)
+        transaction_tree.heading("Date", text="Date", anchor=CENTER)
+        transaction_tree.heading("Amount", text="Amount", anchor=CENTER)
+        transaction_tree.heading("Status", text="Status", anchor=CENTER)
+        transaction_tree.heading("Overdue Status", text="Overdue", anchor=CENTER)
+        transaction_tree.heading("Overdue Amount", text="Penalty", anchor=CENTER)
+        transaction_tree.heading("Total Amount", text="Total", anchor=CENTER)
+        # Configure column widths and center alignment
+        transaction_tree.column("Payment ID", width=120, anchor=CENTER)
+        transaction_tree.column("Tenant ID", width=120, anchor=CENTER)
+        transaction_tree.column("Tenant Name", width=150, anchor=CENTER)
+        transaction_tree.column("Date", width=150, anchor=CENTER)
+        transaction_tree.column("Amount", width=120, anchor=CENTER)
+        transaction_tree.column("Status", width=120, anchor=CENTER)
+        transaction_tree.column("Overdue Status", width=120, anchor=CENTER)
+        transaction_tree.column("Overdue Amount", width=120, anchor=CENTER)
+        transaction_tree.column("Total Amount", width=120, anchor=CENTER)
+        # Fetch and display data
+        for item in transaction_tree.get_children():
+            transaction_tree.delete(item)
+        try:
+            cursor.execute("""
+                SELECT Payment_ID, Tenant_ID, Tenant_Name, Transaction_Date, 
+                       Rental_Amount, Status, Overdue_Status, Overdue_Amount, Total_Amount
+                FROM Payment_Manage
+            """)
+            payments = cursor.fetchall()
+            for payment in payments:
+                transaction_tree.insert('', 'end', values=payment)
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        # Configure fonts
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Arial", 14, "bold"))
+        style.configure("Treeview", font=("Arial", 12))
+        # Add scrollbar for Transaction History
+        # transaction_scrollbar = ttk.Scrollbar(transaction_frame, orient=VERTICAL, command=transaction_tree.yview)
+        # transaction_tree.configure(yscrollcommand=transaction_scrollbar.set)
+        # Place Transaction History treeview and scrollbar
+        # transaction_scrollbar.pack(side=RIGHT, fill=Y)
+        transaction_tree.place(x=15, y=80)
+        # Load initial data into transaction tree
+        load_all_payments()
+        def view_payment_details():
+            selected_item = transaction_tree.selection()
+            if not selected_item:
+                messagebox.showwarning("Selection Required", "Please select a payment to view details")
+                return
+            payment_id = transaction_tree.item(selected_item)['values'][0]
+            try:
+                # Clear previous details in side frame first, except the details_label
+                for widget in side_frame.winfo_children():
+                    if widget != details_label:
+                        widget.destroy()
+                # Get payment details
+                cursor.execute("""
+                    SELECT * FROM Payment_Manage 
+                    WHERE Payment_ID = ?
+                """, (payment_id,))
+                payment_details = cursor.fetchone()
+                if payment_details:
+                    # Create treeview to display details
+                    details_tree = ttk.Treeview(side_frame, columns=("Field", "Value"), show="headings", height=16)
+                    details_tree.heading("Field", text="Field")
+                    details_tree.heading("Value", text="Value")
+                    details_tree.column("Field", width=200)
+                    details_tree.column("Value", width=300)
+                    # Insert payment details into treeview
+                    details = [
+                        ("Payment ID", payment_details[0]),
+                        ("Tenant ID", payment_details[1]),
+                        ("Tenant Name", payment_details[2]),
+                        ("Stall ID", payment_details[3]),
+                        ("Postcode", payment_details[4]),
+                        ("Rental Amount", payment_details[5]),
+                        ("Transaction Date", payment_details[6]),
+                        ("Remarks", payment_details[7]),
+                        ("Bank Slip", payment_details[8]),
+                        ("Status", payment_details[9]),
+                        ("Gov Receipts", payment_details[10]),
+                        ("Due Date", payment_details[11]),
+                        ("Overdue Status", payment_details[12]),
+                        ("Overdue Amount", payment_details[13]),
+                        ("Total Amount", payment_details[14])
+                    ]
+                    for field, value in details:
+                        details_tree.insert("", "end", values=(field, value))
+                    details_tree.pack(padx=10, pady=(0, 10))
+                    # Create a frame for buttons
+                    button_frame = Frame(side_frame, bg='white')
+                    button_frame.pack(pady=10)
+                    def view_bank_slip(bank_slip_path):
+                        if bank_slip_path and os.path.exists(bank_slip_path):
+                            try:
+                                os.startfile(bank_slip_path)  # For Windows
+                            except:
+                                try:
+                                    subprocess.run(['xdg-open', bank_slip_path])  # For Linux
+                                except:
+                                    try:
+                                        subprocess.run(['open', bank_slip_path])  # For macOS
+                                    except:
+                                        messagebox.showerror("Error", "Could not open bank slip file")
+                        else:
+                            messagebox.showerror("Error", "Bank slip file not found")
+                    def view_gov_receipt(receipt_path):
+                        if receipt_path and os.path.exists(receipt_path):
+                            try:
+                                os.startfile(receipt_path)  # For Windows
+                            except:
+                                try:
+                                    subprocess.run(['xdg-open', receipt_path])  # For Linux
+                                except:
+                                    try:
+                                        subprocess.run(['open', receipt_path])  # For macOS
+                                    except:
+                                        messagebox.showerror("Error", "Could not open government receipt file")
+                        else:
+                            messagebox.showerror("Error", "Government receipt file not found")
+                    # Add buttons to the button frame
+                    Button(button_frame, text='View Bank Slip', fg='black', bg='ivory2', activebackground='#fd5602',
+                           font=('Times new roman', 14), width=15, command=lambda: view_bank_slip(payment_details[8])).pack(
+                        side=LEFT, padx=10)
+                    Button(button_frame, text='View Gov Receipt', fg='black', bg='ivory2', activebackground='#fd5602',
+                           font=('Times new roman', 14), width=15,
+                           command=lambda: view_gov_receipt(payment_details[10])).pack(
+                        side=LEFT, padx=10)
+                    def show_status_options():
+                        # Create frame for radio buttons below button frame
+                        status_frame = Frame(side_frame, bg='white')
+                        status_frame.pack(pady=10)
+                        # Create StringVar to store selected status
+                        status_var = StringVar()
+                        status_var.set('Completed')  # Default selection
+                        # Create radio buttons
+                        Radiobutton(status_frame, text='Completed', variable=status_var, value='Completed', bg='white',
+                                    font=('Arial', 12, 'bold')).pack(side=LEFT, padx=10)
+                        Radiobutton(status_frame, text='Pending', variable=status_var, value='Pending', bg='white',
+                                    font=('Arial', 12, 'bold')).pack(side=LEFT, padx=10)
+                        # Add save button below radio buttons
+                        save_btn = Button(status_frame, text='Save Changes', fg='white', bg='blue',
+                                          activebackground='white',
+                                          font=('Times new roman', 12), width=12,
+                                          command=lambda: save_status_changes(payment_details[0], status_var.get(),
+                                                                              status_frame, update_status_btn))
+                        save_btn.pack(pady=10)
+                        # Disable the update status button while editing
+                        update_status_btn.config(state='disabled')
+                    def save_status_changes(payment_id, new_status, status_frame, update_btn):
+                        try:
+                            # Update status in database
+                            cursor.execute("""
+                                UPDATE Payment_Manage 
+                                SET Status = ? 
+                                WHERE Payment_ID = ?
+                            """, (new_status, payment_id))
+                            conn.commit()
+                            messagebox.showinfo("Status Update",
+                                                f"Payment ID {payment_id}: Status updated to {new_status}.")
+                            # Refresh the transaction tree view
+                            show_all_data()
+                            # Forget (remove) the status frame containing radio buttons and save button
+                            status_frame.pack_forget()
+                            # Re-enable the update status button
+                            update_btn.config(state='normal')
+                        except sqlite3.Error as e:
+                            messagebox.showerror("Database Error", f"Failed to update status: {str(e)}")
+                    update_status_btn = Button(button_frame, text='Update Status', fg='black', bg='#fd5602',
+                                               activebackground='ivory2', font=('Times new roman', 14), width=15,
+                                               command=show_status_options)
+                    update_status_btn.pack(side=LEFT, padx=10)
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        def show_all_data():
+            # Clear existing items in treeview
+            for item in transaction_tree.get_children():
+                transaction_tree.delete(item)
+            try:
+                # Query all payment details from database
+                cursor.execute("""
+                        SELECT Payment_ID, Tenant_ID, Tenant_Name, Transaction_Date, 
+                               Rental_Amount, Status, Overdue_Status, Overdue_Amount, Total_Amount
+                        FROM Payment_Manage
+                    """)
+                payments = cursor.fetchall()
+                # Insert all payments into treeview
+                for payment in payments:
+                    transaction_tree.insert('', 'end', values=payment)
+            except sqlite3.Error as e:
+                messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+        show_all_button = Button(transaction_frame, text='Show All', font=('Arial', 12, 'bold'), bg='#fd5602',
+                                 activebackground='white', command=show_all_data, width=12)
+        show_all_button.place(x=350, y=550)
+    view_details_button = Button(transaction_frame, text='View Details', font=('Arial', 12, 'bold'), bg='#fd5602',
+                                 activebackground='white', command=view_payment_details, width=12)
+    view_details_button.place(x=600, y=550)
+    # Create frame beside transaction treeview
+    side_frame = Frame(transaction_frame, bg='white', width=650, height=600, relief="solid", borderwidth=1)
+    side_frame.place(x=1200, y=80)
+    side_frame.pack_propagate(False)  # Prevent the frame from shrinking
+    # Create details label at the top of side frame
+    details_label = Label(side_frame, text='Details:', font=("Times new roman", 20), bg='white', fg='black')
+    details_label.pack(padx=10, pady=10, anchor='nw')
+    # Create Treeview for Overdue Payments
+    # Create label to show current time
+    Label(overdue_frame, text="Current Date & Time: ", font=("Times new roman", 20), fg="blue", bg='mint cream').place(
+        x=25, y=20)
+    current_time_label = Label(overdue_frame, text="", font=("Times new roman", 20), fg="blue", bg='mint cream')
+    current_time_label.place(x=280, y=20)
+    def update_time():
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        current_time_label.config(text=current_time)
+        current_time_label.after(1000, update_time)  # Update every 1 second
+    update_time()  # Start the time update
+    '''
+    # Add a checkbox at the right top on the same line as current_time
+    show_time_var = IntVar()
+    show_time_checkbox = Checkbutton(overdue_frame, text="Show Time", variable=show_time_var, font=("Times new roman", 14), bg='mint cream')
+    show_time_checkbox.place(x=600, y=20)
+    '''
+    # Create frames for checkboxes and labels
+    checkbox_frame = Frame(overdue_frame, bg='mint cream')
+    checkbox_frame.place(x=1570, y=20)
+    label_frame = Frame(overdue_frame, bg='mint cream')
+    label_frame.place(x=1570, y=50)
+    # Create the monthly label
+    monthly_label = Label(label_frame, text="", font=("Times new roman", 14), bg='mint cream')
+    monthly_label.pack(anchor='w')
+    # Initialize variables
+    show_monthly_var = IntVar()
+    show_all_var = IntVar()
+    # Create both checkboxes at initialization
+    show_monthly_checkbox = Checkbutton(
+        checkbox_frame,
+        text="Show Current Month Records",
+        variable=show_monthly_var,
+        font=("Times new roman", 14),
+        bg='mint cream',
+        command=lambda: filter_monthly_records()
+    )
+    show_all_checkbox = Checkbutton(
+        checkbox_frame,
+        text="Show All Records",
+        variable=show_all_var,
+        font=("Times new roman", 14),
+        bg='mint cream',
+        command=lambda: show_all_records()
+    )
+    # Initially show only the monthly checkbox
+    show_monthly_checkbox.pack(anchor='w')
+    def show_all_records():
+        # Clear existing items in the treeview
+        for item in overdue_tree.get_children():
+            overdue_tree.delete(item)
+        # Update label
+        monthly_label.config(text="All Records Shown", fg='green')
+        # Reset checkboxes
+        show_monthly_var.set(0)
+        show_all_var.set(1)
+        # Show monthly checkbox, hide all records checkbox
+        show_all_checkbox.pack_forget()
+        show_monthly_checkbox.pack(anchor='w')
+        # Query and display all records
+        try:
+            cursor.execute("""
+            SELECT Payment_ID, Tenant_ID, Tenant_Name, Rental_Amount, Payment_Due, 
+                   Overdue_Status, Overdue_Amount, Total_Amount, Reminder_Date
+            FROM Payment_Manage
+            """)
+            payments = cursor.fetchall()
+            for payment in payments:
+                overdue_tree.insert('', 'end', values=payment)
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+    def filter_monthly_records():
+        # Clear existing items in the treeview
+        for item in overdue_tree.get_children():
+            overdue_tree.delete(item)
+        # Update label and show all records checkbox
+        monthly_label.config(text="Current Month Records Shown", fg='red')
+        show_monthly_checkbox.pack_forget()
+        show_all_checkbox.pack(anchor='w')
+        # Get current month and year
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+        # Query and filter records
+        try:
+            cursor.execute("""
+            SELECT Payment_ID, Tenant_ID, Tenant_Name, Rental_Amount, Payment_Due, 
+                   Overdue_Status, Overdue_Amount, Total_Amount, Reminder_Date
+            FROM Payment_Manage
+            """)
+            payments = cursor.fetchall()
+            for payment in payments:
+                if payment[4] is None:
+                    continue
+                try:
+                    payment_due_date = datetime.strptime(payment[4], "%Y-%m-%d")
+                    if payment_due_date.month == current_month and payment_due_date.year == current_year:
+                        overdue_tree.insert('', 'end', values=payment)
+                except ValueError:
+                    continue
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+    overdue_tree = ttk.Treeview(overdue_frame, columns=(
+        "Payment ID", "Tenant ID", "Tenant Name", "Rental Amount", "Due Date", "Overdue Status", "Overdue Amount",
+        "Total Amount", "Reminder Date"), show="headings", height=12)
+    # Configure Overdue Payments columns with center alignment
+    overdue_tree.heading("Payment ID", text="Payment ID", anchor=CENTER)
+    overdue_tree.heading("Tenant ID", text="Tenant ID", anchor=CENTER)
+    overdue_tree.heading("Tenant Name", text="Tenant Name", anchor=CENTER)
+    overdue_tree.heading("Rental Amount", text="Rental Amount", anchor=CENTER)
+    overdue_tree.heading("Due Date", text="Due Date", anchor=CENTER)
+    overdue_tree.heading("Overdue Status", text="Overdue Status", anchor=CENTER)
+    overdue_tree.heading("Overdue Amount", text="Overdue Amount", anchor=CENTER)
+    overdue_tree.heading("Total Amount", text="Total Amount", anchor=CENTER)
+    overdue_tree.heading("Reminder Date", text="Reminder Date", anchor=CENTER)
+    # Configure column widths and center alignment
+    overdue_tree.column("Payment ID", width=180, anchor=CENTER)
+    overdue_tree.column("Tenant ID", width=180, anchor=CENTER)
+    overdue_tree.column("Tenant Name", width=260, anchor=CENTER)
+    overdue_tree.column("Rental Amount", width=220, anchor=CENTER)
+    overdue_tree.column("Due Date", width=180, anchor=CENTER)
+    overdue_tree.column("Overdue Status", width=200, anchor=CENTER)
+    overdue_tree.column("Overdue Amount", width=200, anchor=CENTER)
+    overdue_tree.column("Total Amount", width=200, anchor=CENTER)
+    overdue_tree.column("Reminder Date", width=220, anchor=CENTER)
+    # Configure fonts
+    style = ttk.Style()
+    style.configure("Treeview.Heading", font=("Arial", 14, "bold"))
+    style.configure("Treeview", font=("Arial", 12))
+    # Add scrollbar for Overdue Payments
+    # overdue_scrollbar = ttk.Scrollbar(overdue_frame, orient=VERTICAL, command=overdue_tree.yview)
+    # overdue_tree.configure(yscrollcommand=overdue_scrollbar.set)
+    # Place Overdue Payments treeview and scrollbar
+    overdue_tree.place(x=25, y=90)
+    # Function to load overdue payments
+    def load_overdue_payments():
+        # Clear existing items
+        for item in overdue_tree.get_children():
+            overdue_tree.delete(item)
+        try:
+            conn = sqlite3.connect('govRental.db')
+            cursor = conn.cursor()
+            # Get overdue payments with all required fields
+            cursor.execute("""
+                SELECT 
+                    Payment_ID,
+                    Tenant_ID,
+                    Tenant_Name,
+                    Rental_Amount,
+                    Payment_Due,
+                    Overdue_Status,
+                    Overdue_Amount,
+                    Total_Amount,
+                    Reminder_Date
+                FROM Payment_Manage
+                WHERE Transaction_Date IS NULL
+                AND Status = 'Pending'
+            """)
+            overdue_payments = cursor.fetchall()
+            # Insert payments into treeview
+            for payment in overdue_payments:
+                payment_id = payment[0]
+                tenant_id = payment[1]
+                tenant_name = payment[2]
+                rental_amount = payment[3]
+                payment_due = payment[4] if payment[4] is not None else "N/A"
+                overdue_status = payment[5]
+                overdue_amount = payment[6]
+                total_amount = payment[7] if payment[7] is not None else 0.0  # Handle NoneType for total_amount
+                reminder_date = payment[8]
+                overdue_tree.insert('', 'end', values=(
+                    payment_id,
+                    tenant_id,
+                    tenant_name,
+                    f'RM {rental_amount:.2f}',
+                    payment_due,
+                    overdue_status,
+                    f'RM {overdue_amount:.2f}',
+                    f'RM {total_amount:.2f}',
+                    reminder_date
+                ))
+            conn.close()
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred: {str(e)}")
+    # Load overdue payments initially
+    load_overdue_payments()
+    # Add a label below overdue_tree
+    reminder_label = Label(overdue_frame, text="Reminder Message", font=("Arial", 16, "bold"), fg='blue',
+                           bg='mint cream')
+    reminder_label.place(x=25, y=400)
+    '''
+    # Add a new Treeview below the label
+    reminder_tree = ttk.Treeview(overdue_frame, columns=("Reminder ID", "Message"), show="headings", height=5)
+    # Configure Reminder Treeview columns
+    reminder_tree.heading("Reminder ID", text="Reminder ID", anchor=CENTER)
+    reminder_tree.heading("Message", text="Message", anchor=CENTER)
+    # Configure column widths and center alignment
+    reminder_tree.column("Reminder ID", width=180, anchor=CENTER)
+    reminder_tree.column("Message", width=400, anchor=CENTER)
+    # Place Reminder Treeview
+    reminder_tree.place(x=25, y=450)
+    '''
+    def check_and_send_reminders():
+        # Get the current date in YYYY-MM-DD format
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        # Query to find tenants with reminders set for today in Payment_Manage
+        cursor.execute("""
+        SELECT pm.Stall_ID, pm.Tenant_ID, pm.Tenant_Name, pm.Reminder_Date
+        FROM Payment_Manage pm
+        WHERE pm.Reminder_Date = ?
+        """, (current_date,))
+        results = cursor.fetchall()
+        for row in results:
+            stall_id, tenant_id, tenant_username, reminder_date = row
+            reminder_message = "This is a reminder for your upcoming payment due."
+            # Insert a new reminder entry into the Reminder table
+            cursor.execute("""
+            INSERT INTO Reminders (Tenant_ID, Tenant_Username, Date_Time, Message, read, Tenant_Email_Address)
+            VALUES (?, ?, '', ?, ?, ?)
+            """, (tenant_id, tenant_username, stall_id, reminder_message, current_date)) #
+        # Commit the changes
+        conn.commit()
+    def display_reminders():
+        # Query to fetch reminder details for the Treeview display
+        cursor.execute("""
+        SELECT Tenant_ID, Tenant_Username, Date_Time, Message, read, Tenant_Email_Address FROM Reminders
+        """)
+        reminders = cursor.fetchall()
+        # Configure Treeview
+        reminder_tree = ttk.Treeview(overdue_frame, columns=(
+            "Reminder_ID", "Tenant_ID", "Tenant_Username", "Date_Time", "Message"),
+                                     show="headings")
+        reminder_tree.heading("Reminder_ID", text="Reminder ID")
+        reminder_tree.heading("Tenant_ID", text="Tenant ID")
+        reminder_tree.heading("Tenant_Username", text="Tenant Username")
+        reminder_tree.heading("Date_Time", text="Sent Date")
+        reminder_tree.heading("Reminder_Message", text="Message")
+        # Insert data into Treeview
+        for reminder in reminders:
+            reminder_tree.insert("", "end", values=reminder)
+        reminder_tree.place(x=25, y=450)
+    check_and_send_reminders()
+    display_reminders()
